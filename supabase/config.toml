@@ -1,0 +1,5 @@
+# Minimal Supabase CLI config. Anything not set here uses the CLI defaults.
+project_id = "lazy-ledger"
+
+[functions.parse-expense]
+verify_jwt = true

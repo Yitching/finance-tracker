@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* Design tokens: warm paper in light mode, soft charcoal in dark mode. */
+@theme {
+  --color-bg: #f6f3ee;
+  --color-card: #ffffff;
+  --color-ink: #1f1d1a;
+  --color-ink-soft: #6b665e;
+  --color-ink-faint: #a29c92;
+  --color-line: #ebe6de;
+  --color-accent: #0f8a6a;
+  --color-accent-soft: #6fe0bf;
+  --color-good: #0f8a6a;
+  --color-danger: #d1495b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #141412;
+    --color-card: #1e1d1b;
+    --color-ink: #f2efe9;
+    --color-ink-soft: #b3ada3;
+    --color-ink-faint: #7d776e;
+    --color-line: #2c2a27;
+    --color-accent: #2bb38d;
+    --color-accent-soft: #0f8a6a;
+    --color-good: #45c9a3;
+    --color-danger: #ef6f80;
+  }
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
