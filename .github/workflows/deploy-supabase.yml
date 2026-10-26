@@ -17,7 +17,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: "latest" asks GitHub's API on every run and can hit its rate limit.
+          version: 2.122.0
       - run: supabase link --project-ref $PROJECT_REF
       - run: supabase db push
       - run: supabase functions deploy parse-expense
