@@ -15,6 +15,19 @@ import { CATEGORY_EMOJI, type MerchantRule } from "../lib/types";
 import { ScreenHeader } from "./ScreenHeader";
 
 type TokenInfo = { user_id: string; created_at: string; last_used_at: string | null };
+type LogEntry = {
+  id: number;
+  created_at: string;
+  raw_input: string;
+  outcome: "pending" | "ignored" | "error";
+  detail: string | null;
+};
+
+/** "SGD 20.00", "S$5.5", "$1,234.50" → the number, if the alert shows one. */
+function amountIn(text: string) {
+  const m = text.match(/(?:SGD|S\$|\$)\s?(\d[\d,]*(?:\.\d{1,2})?)/i);
+  return m ? Number(m[1].replace(/,/g, "")) : null;
+}
 type TestResult = { ok: boolean; text: string };
 
 const THEMES: { value: Theme; label: string }[] = [
@@ -34,16 +47,24 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
   const [result, setResult] = useState<TestResult | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(() => savedTheme());
+  const [log, setLog] = useState<LogEntry[]>([]);
+  const [rescued, setRescued] = useState<number[]>([]);
 
   const load = useCallback(async () => {
-    const [tok, rul, ses] = await Promise.all([
+    const [tok, rul, ses, lg] = await Promise.all([
       supabase.from("capture_tokens").select("user_id, created_at, last_used_at").maybeSingle(),
       supabase
         .from("merchant_rules")
         .select("merchant_key, example, display_name, category")
         .order("display_name"),
       supabase.auth.getSession(),
+      supabase
+        .from("capture_log")
+        .select("id, created_at, raw_input, outcome, detail")
+        .order("created_at", { ascending: false })
+        .limit(20),
     ]);
+    if (lg.data) setLog(lg.data);
     setInfo(tok.data ?? null);
     // Turned off (maybe from another device): forget the copy kept here.
     if (!tok.error && !tok.data) {
@@ -136,6 +157,22 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
     } finally {
       setBusy(false);
     }
+  }
+
+  /** The AI ignored it but you know it was spending: put it in the Inbox to fix up there. */
+  async function addAnyway(entry: LogEntry) {
+    const { error } = await supabase.from("expenses").insert({
+      item: "Payment",
+      amount: amountIn(entry.raw_input),
+      category: "Others",
+      source: "notification",
+      status: "pending",
+      raw_input: entry.raw_input,
+      spent_at: entry.created_at,
+    });
+    if (error) return;
+    setRescued((r) => [...r, entry.id]);
+    onCaptured();
   }
 
   async function forget(rule: MerchantRule) {
@@ -281,6 +318,57 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
           </p>
         )}
       </section>
+
+      {info && (
+        <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">📜 Recent notifications</h2>
+            <button onClick={() => void load()} className="text-sm font-medium text-accent">
+              Refresh
+            </button>
+          </div>
+          {log.length ? (
+            <ul className="divide-y divide-line">
+              {log.map((l) => (
+                <li key={l.id} className="space-y-1 py-2.5">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span
+                      className={`font-semibold ${
+                        l.outcome === "pending" ? "text-good" : l.outcome === "error" ? "text-danger" : "text-ink-soft"
+                      }`}
+                    >
+                      {l.outcome === "pending"
+                        ? `✓ Sent to Inbox${l.detail ? ` · ${l.detail}` : ""}`
+                        : l.outcome === "error"
+                          ? `⚠️ Error · ${l.detail}`
+                          : `⏭ Ignored · ${l.detail}`}
+                    </span>
+                    <span className="flex-1" />
+                    <span className="text-ink-faint">{when(l.created_at)}</span>
+                  </div>
+                  <p className="line-clamp-3 font-mono text-xs whitespace-pre-line text-ink-soft">{l.raw_input}</p>
+                  {l.outcome !== "pending" &&
+                    l.raw_input !== "(empty)" &&
+                    (rescued.includes(l.id) ? (
+                      <p className="text-xs font-medium text-good">Added to Inbox ✓</p>
+                    ) : (
+                      <button
+                        onClick={() => void addAnyway(l)}
+                        className="rounded-xl bg-bg px-3 py-1.5 text-xs font-semibold ring-1 ring-line"
+                      >
+                        Add to Inbox anyway
+                      </button>
+                    ))}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-soft">
+              Nothing yet. Every notification your phone sends shows up here with what happened to it, for 14 days.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
         <h2 className="text-lg font-semibold">🏷️ Merchants I remember</h2>

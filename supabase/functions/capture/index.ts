@@ -63,7 +63,10 @@ const classifyTool = {
 const SYSTEM = `You read ONE phone notification, usually from a Singapore bank, card or payment app, and decide whether it shows money the user just spent.
 kind:
 - "spend": a card charge, NETS / PayNow / PayLah! / GrabPay / ShopeePay payment, bill payment, or money the user sent to someone.
-  Money going OUT counts even when no amount is shown, e.g. "You've sent money to JOHN TAN via PayNow".
+  Money going OUT counts even when no amount is shown, and even when the recipient is masked. Examples that are all "spend":
+  "You've sent money to JOHN TAN via PayNow"
+  "UOB - Your PayNow transfer to SEEXXX on 26/10/26 is successful."
+  "You have transferred SGD 20.00 to J***N T*N"
 - "otp": one-time passwords, verification codes, login or new-device alerts.
 - "promo": promotions, offers, cashback adverts, newsletters.
 - "incoming": money received, refunds, reversals, salary, interest. Read the direction carefully: "received from X" / "X sent you" is incoming; "sent to X" / "transferred to X" / "paid X" is spend.
@@ -71,7 +74,7 @@ kind:
 - "other": anything else, including balance updates, statements, moving money between the user's own accounts or wallets (top-ups), and non-finance apps.
 For "spend":
 - merchant: the merchant or recipient exactly as written in the notification, e.g. "GRAB*A-6XYZ" or "NTUC FP-BEDOK".
-- item: a short friendly name in Title Case, e.g. "Grab", "NTUC FairPrice", "Shopee". For a transfer to a person, use their name.
+- item: a short friendly name in Title Case, e.g. "Grab", "NTUC FairPrice", "Shopee". For a transfer to a person, use their name; if the name is masked (e.g. "SEEXXX"), use "PayNow Transfer".
 - amount: the amount in SGD as a number. If only a foreign-currency amount is shown, use that number. If no amount is shown at all, null. Never guess.
 - category: your best guess.
 For any other kind, set merchant, item and amount to null and category to "Others".
@@ -131,7 +134,27 @@ Deno.serve(async (req) => {
   if (!userId) return json({ error: "Unknown phone token. Make a new one in Settings." }, 401);
 
   const text = (await readText(req)).replace(/\n{2,}/g, "\n").trim().slice(0, 1000);
-  if (!text) return json({ error: "Empty notification" }, 400);
+
+  // Every request lands in capture_log, so Settings can show why something didn't arrive.
+  const log = async (outcome: "pending" | "ignored" | "error", detail: string | null, expenseId?: string) => {
+    await admin.from("capture_log").insert({
+      user_id: userId,
+      raw_input: text || "(empty)",
+      outcome,
+      detail,
+      expense_id: expenseId ?? null,
+    });
+    await admin
+      .from("capture_log")
+      .delete()
+      .eq("user_id", userId)
+      .lt("created_at", new Date(Date.now() - 14 * 86_400_000).toISOString());
+  };
+
+  if (!text) {
+    await log("error", "empty notification: check the MacroDroid body");
+    return json({ error: "Empty notification" }, 400);
+  }
 
   // Android sometimes posts the same notification twice (or updates it in place).
   const { data: repeat } = await admin
@@ -141,17 +164,23 @@ Deno.serve(async (req) => {
     .eq("raw_input", text)
     .gte("created_at", new Date(Date.now() - 2 * 60_000).toISOString())
     .limit(1);
-  if (repeat?.length) return json({ status: "ignored", reason: "repeat" });
+  if (repeat?.length) {
+    await log("ignored", "repeat");
+    return json({ status: "ignored", reason: "repeat" });
+  }
 
   let verdict: Verdict | null;
   try {
     verdict = await callTool<Verdict>(SYSTEM, text, classifyTool);
   } catch (e) {
     console.error(e);
+    await log("error", `AI: ${String(e).slice(0, 300)}`);
     return json({ error: "Couldn't reach the AI, try again" }, 502);
   }
   if (!verdict || verdict.kind !== "spend") {
-    return json({ status: "ignored", reason: verdict?.kind ?? "other" });
+    const reason = verdict?.kind ?? "other";
+    await log("ignored", reason);
+    return json({ status: "ignored", reason });
   }
 
   // No amount (e.g. "You've sent money to JOHN TAN via PayNow"): keep it anyway, the Inbox asks for it.
@@ -191,7 +220,9 @@ Deno.serve(async (req) => {
 
   if (error) {
     console.error(error);
+    await log("error", `save: ${error.message}`);
     return json({ error: "Couldn't save it" }, 500);
   }
+  await log("pending", amount === null ? "no amount" : null, row.id);
   return json({ status: "pending", expense: row, needsAmount: amount === null });
 });

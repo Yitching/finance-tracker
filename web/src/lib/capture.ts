@@ -42,10 +42,10 @@ export const SIMULATIONS: Simulation[] = [
   },
   {
     id: "paynow-out",
-    label: "📤 PayNow sent · no amount shown",
+    label: "📤 UOB PayNow sent · no amount, masked name",
     expect: "pending-no-amount",
     text: (now) =>
-      `DBS digibank\nTransfer successful\nYou've sent money to JOHN TAN via PayNow on ${now}. Ref: 7XK2Q9.`,
+      `UOB Personal Internet Banking\nNotifications Alerts\nUOB - Your PayNow transfer to SEEXXX on ${now} is successful.`,
   },
   {
     id: "paynow-in",
