@@ -1,7 +1,7 @@
 export const CAPTURE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/capture`;
 
 /** What MacroDroid should send: app name, title and text, one per line (MacroDroid magic text). */
-export const MACRODROID_BODY = "[not_app_name]\n[not_title]\n[notification]";
+export const MACRODROID_BODY = "{not_app_name}\n{not_title}\n{notification}";
 
 // The server only keeps a hash, so the plain token lives on the device that made it.
 const TOKEN_KEY = "lazy-ledger.capture-token";

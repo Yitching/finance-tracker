@@ -5,8 +5,8 @@
 // Alerts that don't say how much (common for PayNow) still come in, with no
 // amount, and the Inbox asks you for it.
 //
-// Auth: the phone token from Settings, as "Authorization: Bearer ll_..." or
-// "?token=ll_..." for tools that can't set headers. The app's test button may
+// Auth: the phone token from Settings, as "Authorization: Bearer ll_...",
+// "x-capture-token: ll_...", or "?token=ll_..." for tools that can't set headers. The app's test button may
 // send the signed-in user's session token instead.
 //
 // Body: plain text (app name, title and text on separate lines), or JSON
@@ -87,7 +87,9 @@ async function sha256Hex(s: string) {
 
 async function userFromRequest(req: Request): Promise<string | null> {
   const bearer = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "").trim();
-  const token = bearer || new URL(req.url).searchParams.get("token")?.trim();
+  const token = bearer ||
+    req.headers.get("x-capture-token")?.trim() ||
+    new URL(req.url).searchParams.get("token")?.trim();
   if (!token) return null;
 
   if (token.startsWith("ll_")) {

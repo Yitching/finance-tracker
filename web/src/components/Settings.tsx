@@ -281,7 +281,7 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
                 />
               </div>
               <p className="mt-2 text-xs text-ink-soft">
-                The body words in brackets are MacroDroid “magic text”. If pasting doesn't work, insert
+                The words in curly braces are MacroDroid “magic text”. If pasting doesn't work, insert
                 notification app name, title and text from the magic text (…) button, one per line.
               </p>
             </li>
