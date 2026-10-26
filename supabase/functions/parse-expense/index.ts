@@ -1,7 +1,10 @@
 // Supabase Edge Function: parse-expense
 // Takes free text like "kopi, chicken rice 5.5 and grab 12 yesterday",
-// asks Claude Haiku to split it into expenses, fills missing prices from
+// asks an AI model to split it into expenses, fills missing prices from
 // price memory, saves everything and returns the new rows.
+//
+// Provider is picked by the AI_PROVIDER secret: "groq" (free tier) or "anthropic".
+// If AI_PROVIDER isn't set, whichever API key exists is used (Anthropic first).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -16,8 +19,18 @@ const CATEGORIES = [
   "Others",
 ] as const;
 
-const MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-5-5";
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-5-5";
+const GROQ_KEY = Deno.env.get("GROQ_API_KEY");
+const GROQ_MODEL = Deno.env.get("GROQ_MODEL") ?? "openai/gpt-oss-120b";
+
+const PROVIDER: "anthropic" | "groq" | null = (() => {
+  const chosen = Deno.env.get("AI_PROVIDER")?.toLowerCase();
+  if (chosen === "groq" || chosen === "anthropic") return chosen;
+  if (ANTHROPIC_KEY) return "anthropic";
+  if (GROQ_KEY) return "groq";
+  return null;
+})();
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -80,21 +93,24 @@ const recordTool = {
   },
 };
 
-async function askClaude(text: string, memory: Memory[]): Promise<ParsedItem[]> {
+function buildSystemPrompt(memory: Memory[]) {
   const known = memory.length
     ? memory
         .map((m) => `- ${m.display_name}: $${Number(m.last_amount).toFixed(2)} (${m.category})`)
         .join("\n")
     : "(none yet)";
 
-  const system = `You turn casual Singaporean expense notes into structured data.
+  return `You turn casual Singaporean expense notes into structured data.
 The user may write in Singlish, shorthand or mixed languages ("kopi c kosong", "cai png 4.5", "grab home 14", "ntuc 37.80").
 Currency is SGD. "5.5" or "5.50" or "$5.5" all mean 5.50.
 If an item has no price but matches a known item below, use the known price.
 If an item has no price and is unknown, set amount to null. Never invent prices.
+Always answer by calling the record_expenses tool.
 Known items:
 ${known}`;
+}
 
+async function askClaude(text: string, system: string): Promise<ParsedItem[]> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -103,7 +119,7 @@ ${known}`;
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: ANTHROPIC_MODEL,
       max_tokens: 1024,
       system,
       tools: [recordTool],
@@ -121,10 +137,59 @@ ${known}`;
   return (block?.input?.expenses ?? []) as ParsedItem[];
 }
 
+// Groq uses the OpenAI-compatible chat completions format.
+async function askGroq(text: string, system: string): Promise<ParsedItem[]> {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${GROQ_KEY}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      temperature: 0,
+      max_completion_tokens: 1024,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: text },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: recordTool.name,
+            description: recordTool.description,
+            parameters: recordTool.input_schema,
+          },
+        },
+      ],
+      tool_choice: { type: "function", function: { name: recordTool.name } },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Groq API ${res.status}: ${await res.text()}`);
+  }
+
+  const data = await res.json();
+  const call = data.choices?.[0]?.message?.tool_calls?.[0];
+  if (!call) return [];
+  const args = JSON.parse(call.function.arguments ?? "{}");
+  return (args.expenses ?? []) as ParsedItem[];
+}
+
+function askAI(text: string, memory: Memory[]) {
+  const system = buildSystemPrompt(memory);
+  return PROVIDER === "groq" ? askGroq(text, system) : askClaude(text, system);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  if (!ANTHROPIC_KEY) return json({ error: "ANTHROPIC_API_KEY secret is not set" }, 500);
+  if (PROVIDER === "anthropic" && !ANTHROPIC_KEY)
+    return json({ error: "ANTHROPIC_API_KEY secret is not set" }, 500);
+  if (PROVIDER === "groq" && !GROQ_KEY) return json({ error: "GROQ_API_KEY secret is not set" }, 500);
+  if (!PROVIDER) return json({ error: "Set GROQ_API_KEY or ANTHROPIC_API_KEY as a secret" }, 500);
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "Not signed in" }, 401);
@@ -157,7 +222,7 @@ Deno.serve(async (req) => {
 
   let parsed: ParsedItem[];
   try {
-    parsed = await askClaude(text, (memory ?? []) as Memory[]);
+    parsed = await askAI(text, (memory ?? []) as Memory[]);
   } catch (e) {
     console.error(e);
     return json({ error: "Couldn't understand that, try again?" }, 502);
@@ -173,7 +238,13 @@ Deno.serve(async (req) => {
   for (const p of parsed) {
     const name = p.item.trim();
     const remembered = byKey.get(name.toLowerCase());
-    const amount = p.amount ?? (remembered ? Number(remembered.last_amount) : null);
+    // Some models send "5.50" as a string; treat anything non-numeric as missing.
+    const said = p.amount === null || p.amount === undefined ? NaN : Number(p.amount);
+    const amount = Number.isFinite(said) && said >= 0
+      ? said
+      : remembered
+        ? Number(remembered.last_amount)
+        : null;
 
     if (amount === null) {
       missingPrice.push(name);
