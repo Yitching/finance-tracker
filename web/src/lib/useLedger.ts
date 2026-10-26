@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
-import type { Expense, PendingExpense, Remembered } from "./types";
+import type { Expense, ExpensePatch, PendingExpense, Remembered } from "./types";
 
 const HISTORY_DAYS = 62;
 
@@ -48,13 +48,13 @@ export function useLedger() {
     return () => document.removeEventListener("visibilitychange", onShow);
   }, [refresh]);
 
-  /** Free text → AI → saved rows. */
+  /** Free text → AI → saved rows. `spentAt` (ISO) puts them all on a day you picked. */
   const addText = useCallback(
-    async (text: string) => {
+    async (text: string, spentAt?: string) => {
       const { data, error } = await supabase.functions.invoke<{
         saved: Expense[];
         missingPrice: string[];
-      }>("parse-expense", { body: { text } });
+      }>("parse-expense", { body: { text, spentAt } });
       if (error) throw error;
       await refresh();
       return data ?? { saved: [], missingPrice: [] };
@@ -79,10 +79,10 @@ export function useLedger() {
 
   /** Direct insert, no AI. Used by quick chips and "how much was X?" prompts. */
   const addDirect = useCallback(
-    async (item: string, amount: number, category: string, source = "manual") => {
+    async (item: string, amount: number, category: string, source = "manual", spentAt?: string) => {
       const { data, error } = await supabase
         .from("expenses")
-        .insert({ item, amount, category, source })
+        .insert({ item, amount, category, source, ...(spentAt ? { spent_at: spentAt } : {}) })
         .select()
         .single();
       if (error) throw error;
@@ -120,7 +120,7 @@ export function useLedger() {
   );
 
   const update = useCallback(
-    async (id: string, patch: Partial<Pick<Expense, "item" | "amount" | "category">>) => {
+    async (id: string, patch: ExpensePatch) => {
       const apply = <T extends PendingExpense>(prev: T[]) =>
         prev.map((e) => (e.id === id ? { ...e, ...patch } : e));
       setExpenses(apply);
@@ -134,6 +134,8 @@ export function useLedger() {
           p_category: row.category,
         });
         await refresh(); // other pending charges from this merchant were renamed too
+      } else if (patch.spent_at) {
+        await refresh(); // moved to another day: re-sort
       }
     },
     [refresh],

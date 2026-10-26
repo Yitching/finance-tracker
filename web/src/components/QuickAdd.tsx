@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { dateValue, dayLabel, onDay } from "../lib/money";
 import { CATEGORY_EMOJI, type Remembered } from "../lib/types";
+import { DayPicker } from "./DayPicker";
 
 // Minimal typing for the browser Speech API (Chrome on Android exposes the webkit one).
 type SpeechRec = {
@@ -24,6 +26,9 @@ type Props = {
   onPhoto: (file: File) => Promise<void>;
   memory: Remembered[];
   busy: boolean;
+  /** The day new entries go on, "YYYY-MM-DD"; null means today. */
+  day: string | null;
+  onDayChange: (day: string | null) => void;
 };
 
 /**
@@ -38,7 +43,7 @@ function matchMemory(text: string, memory: Remembered[]) {
   return memory.find((m) => m.item_key === q) ?? memory.find((m) => m.item_key.startsWith(q)) ?? null;
 }
 
-export function QuickAdd({ onSubmit, onRemembered, onPhoto, memory, busy }: Props) {
+export function QuickAdd({ onSubmit, onRemembered, onPhoto, memory, busy, day, onDayChange }: Props) {
   const [text, setText] = useState("");
   const [listening, setListening] = useState(false);
   // An amount you've edited, tied to the item it was edited for.
@@ -102,8 +107,31 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, memory, busy }: Prop
         e.preventDefault();
         void submit();
       }}
-      className="rounded-3xl bg-card p-2 shadow-lg ring-1 ring-line"
+      className={`rounded-3xl bg-card p-2 shadow-lg ${day ? "ring-2 ring-accent" : "ring-1 ring-line"}`}
     >
+      {/* Backfilling a missed day: everything you log goes on the picked day until you clear it. */}
+      <div className="flex items-center gap-1 px-1 pb-1">
+        <DayPicker
+          value={day ?? dateValue()}
+          onChange={(v) => onDayChange(v === dateValue() ? null : v)}
+          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+            day ? "bg-accent text-white" : "text-ink-soft active:bg-bg"
+          }`}
+        >
+          📅 {day ? `Logging for ${dayLabel(onDay(day).toISOString())}` : "Today"} ▾
+        </DayPicker>
+        {day && (
+          <button
+            type="button"
+            onClick={() => onDayChange(null)}
+            aria-label="Back to today"
+            className="rounded-full px-2 py-1 text-xs text-ink-soft active:bg-bg"
+          >
+            ✕ Today
+          </button>
+        )}
+      </div>
+
       {match && (
         <div className="mb-1 flex items-center gap-2 rounded-2xl bg-bg py-1.5 pr-1.5 pl-3 text-sm">
           <span>{CATEGORY_EMOJI[match.category] ?? "📦"}</span>

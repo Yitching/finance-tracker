@@ -100,10 +100,11 @@ Deno.serve(async (req) => {
   if (userErr || !userData.user) return json({ error: "Not signed in" }, 401);
 
   let text = "";
+  let spentAt: string | undefined;
   try {
-    ({ text } = await req.json());
+    ({ text, spentAt } = await req.json());
   } catch {
-    return json({ error: "Body must be JSON: { text }" }, 400);
+    return json({ error: "Body must be JSON: { text, spentAt? }" }, 400);
   }
   text = (text ?? "").trim();
   if (!text) return json({ error: "Nothing to parse" }, 400);
@@ -126,6 +127,12 @@ Deno.serve(async (req) => {
   const byKey = new Map((memory ?? []).map((m) => [m.item_key, m as Memory]));
   const now = Date.now();
   const DAY = 86_400_000;
+
+  // A day picked in the app (backfilling a missed day) wins over "yesterday" etc. in the text.
+  const picked = spentAt ? new Date(spentAt) : null;
+  if (picked && (Number.isNaN(picked.getTime()) || picked.getTime() > now + DAY || now - picked.getTime() > 366 * DAY)) {
+    return json({ error: "That date is out of range" }, 400);
+  }
 
   const saved = [];
   const missingPrice: string[] = [];
@@ -155,7 +162,7 @@ Deno.serve(async (req) => {
         item: name,
         amount,
         category,
-        spent_at: new Date(now - daysAgo * DAY).toISOString(),
+        spent_at: picked ? picked.toISOString() : new Date(now - daysAgo * DAY).toISOString(),
         source: "ai",
         raw_input: text,
       })

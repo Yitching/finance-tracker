@@ -18,7 +18,19 @@ export const startOfWeek = (d = new Date()) => {
 
 export const startOfMonth = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), 1);
 
-export const timeLabel = (iso: string) =>
+/** "2026-10-22", the value an <input type="date"> uses, in local time. */
+export const dateValue = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** A picked "YYYY-MM-DD" as a local Date, at `time`'s time of day (default midday). */
+export const onDay = (value: string, time?: Date) => {
+  const [y, m, d] = value.split("-").map(Number);
+  return time
+    ? new Date(y, m - 1, d, time.getHours(), time.getMinutes(), time.getSeconds())
+    : new Date(y, m - 1, d, 12);
+};
+
+export const timeLabel =(iso: string) =>
   new Date(iso).toLocaleTimeString("en-SG", { hour: "numeric", minute: "2-digit" });
 
 export const dayLabel =(iso: string) => {

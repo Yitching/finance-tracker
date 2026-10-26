@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
-import { dayLabel, money } from "../lib/money";
-import { CATEGORY_EMOJI, type Expense } from "../lib/types";
+import { dateValue, dayLabel, money, onDay } from "../lib/money";
+import { CATEGORY_EMOJI, type Expense, type ExpensePatch } from "../lib/types";
 import { CategoryPicker } from "./CategoryPicker";
+import { DayPicker } from "./DayPicker";
 
 type Props = {
   expenses: Expense[];
   onDelete: (e: Expense) => void;
-  onUpdate: (id: string, patch: Partial<Pick<Expense, "amount" | "category" | "item">>) => void;
+  onUpdate: (id: string, patch: ExpensePatch) => void;
 };
 
 export function RecentList({ expenses, onDelete, onUpdate }: Props) {
@@ -83,13 +84,14 @@ function EditRow({
   onDone,
 }: {
   expense: Expense;
-  onSave: (patch: Partial<Pick<Expense, "amount" | "category" | "item">>) => void;
+  onSave: (patch: ExpensePatch) => void;
   onDelete: () => void;
   onDone: () => void;
 }) {
   const [item, setItem] = useState(expense.item);
   const [amount, setAmount] = useState(String(expense.amount));
   const [category, setCategory] = useState(expense.category);
+  const [day, setDay] = useState(dateValue(new Date(expense.spent_at)));
 
   return (
     <li className="space-y-3 bg-bg/60 px-4 py-3">
@@ -107,6 +109,15 @@ function EditRow({
         />
       </div>
       <CategoryPicker value={category} onChange={setCategory} />
+      <DayPicker
+        value={day}
+        onChange={setDay}
+        className="flex items-center gap-2 rounded-xl bg-card px-3 py-2 text-sm ring-1 ring-line"
+      >
+        <span>📅</span>
+        <span className="flex-1">{dayLabel(onDay(day).toISOString())}</span>
+        <span className="text-ink-faint">Change</span>
+      </DayPicker>
       <div className="flex gap-2 text-sm font-medium">
         <button onClick={onDelete} className="rounded-xl px-3 py-2 text-danger">
           Delete
@@ -118,10 +129,13 @@ function EditRow({
         <button
           onClick={() => {
             const n = Number(amount);
+            const moved = day !== dateValue(new Date(expense.spent_at));
             onSave({
               item: item.trim() || expense.item,
               amount: Number.isFinite(n) && n >= 0 ? n : expense.amount,
               category,
+              // Same time of day, new date
+              ...(moved ? { spent_at: onDay(day, new Date(expense.spent_at)).toISOString() } : {}),
             });
           }}
           className="rounded-xl bg-accent px-4 py-2 text-white"

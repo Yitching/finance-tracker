@@ -42,6 +42,9 @@ export type Expense = {
  */
 export type PendingExpense = Omit<Expense, "amount"> & { amount: number | null };
 
+/** What you can change on an expense by editing it. */
+export type ExpensePatch = Partial<Pick<Expense, "item" | "amount" | "category" | "spent_at">>;
+
 export type MerchantRule = {
   merchant_key: string;
   example: string | null;

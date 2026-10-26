@@ -4,7 +4,7 @@ import { supabase } from "./lib/supabase";
 import { useLedger } from "./lib/useLedger";
 import { findDuplicates } from "./lib/duplicates";
 import { shrinkPhoto } from "./lib/image";
-import { money, startOfDay, startOfWeek } from "./lib/money";
+import { dayLabel, money, onDay, startOfDay, startOfWeek } from "./lib/money";
 import type { Expense, PendingExpense, Remembered } from "./lib/types";
 import { Login } from "./components/Login";
 import { QuickAdd } from "./components/QuickAdd";
@@ -50,7 +50,10 @@ function Home() {
   const [view, setView] = useState<View>("home");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
-  const [askQueue, setAskQueue] = useState<string[]>([]);
+  // Each "how much was X?" remembers which day X was logged for.
+  const [askQueue, setAskQueue] = useState<{ item: string; day: string | null }[]>([]);
+  // The day new entries go on ("YYYY-MM-DD"); null = today. Stays until you clear it, for backfilling.
+  const [day, setDay] = useState<string | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
 
   // Each screen gets a history entry, so Android's back gesture returns home instead of closing the app.
@@ -72,6 +75,10 @@ function Home() {
     toastTimer.current = window.setTimeout(() => setToast(null), 5000);
   }
 
+  /** Midday on the picked day as ISO, or undefined for "now". */
+  const spentAt = (d: string | null) => (d ? onDay(d).toISOString() : undefined);
+  const forDay = (d: string | null) => (d ? ` for ${dayLabel(onDay(d).toISOString())}` : "");
+
   function describe(rows: PendingExpense[]) {
     if (rows.length === 1) {
       const [r] = rows;
@@ -83,12 +90,12 @@ function Home() {
   async function handleText(text: string) {
     setBusy(true);
     try {
-      const { saved, missingPrice } = await addText(text);
+      const { saved, missingPrice } = await addText(text, spentAt(day));
       if (saved.length) {
         const ids = saved.map((r) => r.id);
-        showToast({ text: `Added ${describe(saved)}`, undo: () => void remove(ids) });
+        showToast({ text: `Added ${describe(saved)}${forDay(day)}`, undo: () => void remove(ids) });
       }
-      if (missingPrice.length) setAskQueue((q) => [...q, ...missingPrice]);
+      if (missingPrice.length) setAskQueue((q) => [...q, ...missingPrice.map((item) => ({ item, day }))]);
       if (!saved.length && !missingPrice.length) showToast({ text: "Hmm, didn't catch any purchase there 🤔" });
     } catch {
       showToast({ text: "Couldn't reach the AI. Check your connection?" });
@@ -99,13 +106,13 @@ function Home() {
 
   async function handleChip(m: Remembered) {
     navigator.vibrate?.(15);
-    const row = await addDirect(m.display_name, m.last_amount, m.category, "chip");
-    showToast({ text: `Added ${describe([row])}`, undo: () => void remove([row.id]) });
+    const row = await addDirect(m.display_name, m.last_amount, m.category, "chip", spentAt(day));
+    showToast({ text: `Added ${describe([row])}${forDay(day)}`, undo: () => void remove([row.id]) });
   }
 
   async function handleRemembered(item: string, amount: number, category: string) {
-    const row = await addDirect(item, amount, category, "memory");
-    showToast({ text: `Added ${describe([row])}`, undo: () => void remove([row.id]) });
+    const row = await addDirect(item, amount, category, "memory", spentAt(day));
+    showToast({ text: `Added ${describe([row])}${forDay(day)}`, undo: () => void remove([row.id]) });
   }
 
   // Receipt items go to the Inbox to check, since a photo can be misread.
@@ -132,10 +139,13 @@ function Home() {
     }
   }
 
-  async function handleAskedPrice(item: string, amount: number) {
+  async function handleAskedPrice(ask: { item: string; day: string | null }, amount: number) {
     setAskQueue((q) => q.slice(1));
-    const row = await addDirect(item, amount, "Others", "manual");
-    showToast({ text: `Added ${describe([row])} · tap it to set a category`, undo: () => void remove([row.id]) });
+    const row = await addDirect(ask.item, amount, "Others", "manual", spentAt(ask.day));
+    showToast({
+      text: `Added ${describe([row])}${forDay(ask.day)} · tap it to set a category`,
+      undo: () => void remove([row.id]),
+    });
   }
 
   function handleDelete(e: Expense) {
@@ -275,8 +285,8 @@ function Home() {
           {toastBar}
           {askQueue[0] && (
             <AskPrice
-              key={askQueue[0] + askQueue.length}
-              item={askQueue[0]}
+              key={askQueue[0].item + askQueue.length}
+              item={askQueue[0].item}
               onSave={(n) => void handleAskedPrice(askQueue[0], n)}
               onSkip={() => setAskQueue((q) => q.slice(1))}
             />
@@ -287,6 +297,8 @@ function Home() {
             onPhoto={handlePhoto}
             memory={memory}
             busy={busy}
+            day={day}
+            onDayChange={setDay}
           />
         </div>
       </div>
