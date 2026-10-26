@@ -38,6 +38,35 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Inbox-zero confetti: each piece flies from the centre to its own (--x, --y). */
+@keyframes burst {
+  0% {
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) rotate(var(--r)) scale(1);
+    opacity: 0;
+  }
+}
+
+.burst > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 1.5rem;
+  animation: burst 1.1s cubic-bezier(0.15, 0.8, 0.3, 1) var(--d, 0ms) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .burst {
+    display: none;
+  }
+}
+
 .no-scrollbar {
   scrollbar-width: none;
 }

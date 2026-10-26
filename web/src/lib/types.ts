@@ -31,7 +31,16 @@ export type Expense = {
   source: string;
   status: "confirmed" | "pending";
   raw_input: string | null;
+  /** Raw merchant text from a bank alert, e.g. "GRAB*A-6XYZ". Only on captured charges. */
+  merchant: string | null;
   created_at: string;
+};
+
+export type MerchantRule = {
+  merchant_key: string;
+  example: string | null;
+  display_name: string;
+  category: string;
 };
 
 export type Remembered = {

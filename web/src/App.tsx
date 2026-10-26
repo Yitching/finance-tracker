@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { useLedger } from "./lib/useLedger";
+import { findDuplicates } from "./lib/duplicates";
 import { money, startOfDay, startOfWeek } from "./lib/money";
 import type { Expense, Remembered } from "./lib/types";
 import { Login } from "./components/Login";
@@ -10,6 +11,8 @@ import { Chips } from "./components/Chips";
 import { Summary } from "./components/Summary";
 import { RecentList } from "./components/RecentList";
 import { AskPrice } from "./components/AskPrice";
+import { Inbox, InboxBanner } from "./components/Inbox";
+import { Settings } from "./components/Settings";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -25,13 +28,29 @@ export default function App() {
 }
 
 type Toast = { text: string; undo?: () => void };
+type View = "home" | "inbox" | "settings";
 
 function Home() {
-  const { expenses, memory, loading, addText, addDirect, remove, restore, update } = useLedger();
+  const { expenses, pending, memory, loading, addText, addDirect, remove, restore, update, setStatus, refresh } =
+    useLedger();
+  const [view, setView] = useState<View>("home");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [askQueue, setAskQueue] = useState<string[]>([]);
   const toastTimer = useRef<number | undefined>(undefined);
+
+  // Each screen gets a history entry, so Android's back gesture returns home instead of closing the app.
+  useEffect(() => {
+    const onPop = () => setView("home");
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  function open(v: View) {
+    window.history.pushState({ view: v }, "");
+    setView(v);
+  }
+  const goHome = () => window.history.back();
 
   function showToast(t: Toast) {
     window.clearTimeout(toastTimer.current);
@@ -78,6 +97,31 @@ function Home() {
     showToast({ text: `Deleted ${e.item}`, undo: () => void restore([e]) });
   }
 
+  const duplicates = useMemo(() => findDuplicates(pending, expenses), [pending, expenses]);
+
+  function handleKeep(e: Expense) {
+    void setStatus([e.id], "confirmed");
+    showToast({ text: `Kept ${describe([e])}`, undo: () => void setStatus([e.id], "pending") });
+  }
+
+  function handleToss(e: Expense) {
+    void remove([e.id]);
+    showToast({ text: `Tossed ${describe([e])}`, undo: () => void restore([e]) });
+  }
+
+  // Likely duplicates stay behind for a manual call, so nothing is counted twice.
+  function handleKeepAll() {
+    const keep = pending.filter((e) => !duplicates.has(e.id));
+    if (!keep.length) return;
+    const ids = keep.map((e) => e.id);
+    void setStatus(ids, "confirmed");
+    const skipped = pending.length - keep.length;
+    showToast({
+      text: `Kept ${describe(keep)}${skipped ? ` · ${skipped} duplicate${skipped > 1 ? "s" : ""} left` : ""}`,
+      undo: () => void setStatus(ids, "pending"),
+    });
+  }
+
   // Gentle, unbreakable consistency signal: days logged this week (Mon–Sun).
   const daysLogged = useMemo(() => {
     const from = startOfWeek().getTime();
@@ -89,6 +133,48 @@ function Home() {
     return days.size;
   }, [expenses]);
 
+  const toastBar = toast && (
+    <div className="flex items-center gap-3 rounded-2xl bg-ink px-4 py-3 text-sm text-bg shadow-lg">
+      <span className="min-w-0 flex-1 truncate">{toast.text}</span>
+      {toast.undo && (
+        <button
+          onClick={() => {
+            toast.undo?.();
+            setToast(null);
+          }}
+          className="font-semibold text-accent-soft"
+        >
+          Undo
+        </button>
+      )}
+    </div>
+  );
+
+  if (view !== "home") {
+    return (
+      <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
+        {view === "inbox" ? (
+          <Inbox
+            pending={pending}
+            duplicates={duplicates}
+            onKeep={handleKeep}
+            onToss={handleToss}
+            onKeepAll={handleKeepAll}
+            onUpdate={(id, patch) => void update(id, patch)}
+            onBack={goHome}
+          />
+        ) : (
+          <Settings onBack={goHome} onCaptured={() => void refresh()} />
+        )}
+        {toastBar && (
+          <div className="fixed inset-x-0 bottom-0 z-10">
+            <div className="mx-auto max-w-lg px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">{toastBar}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
       <header className="flex items-center justify-between px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
@@ -98,8 +184,12 @@ function Home() {
             {daysLogged > 0 ? `🔥 Logged ${daysLogged} of 7 days this week` : "New week, fresh start ✨"}
           </p>
         </div>
-        <button onClick={() => supabase.auth.signOut()} className="text-sm text-ink-faint">
-          Sign out
+        <button
+          onClick={() => open("settings")}
+          aria-label="Settings"
+          className="-mr-2 grid size-10 place-items-center rounded-full text-xl active:bg-card"
+        >
+          ⚙️
         </button>
       </header>
 
@@ -108,6 +198,7 @@ function Home() {
           <div className="h-48 animate-pulse rounded-3xl bg-card" />
         ) : (
           <>
+            {pending.length > 0 && <InboxBanner pending={pending} onOpen={() => open("inbox")} />}
             <Summary expenses={expenses} />
             <RecentList expenses={expenses} onDelete={handleDelete} onUpdate={update} />
           </>
@@ -117,22 +208,7 @@ function Home() {
       {/* Thumb zone: everything you need to log lives at the bottom. */}
       <div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-bg via-bg to-transparent pt-8">
         <div className="mx-auto max-w-lg space-y-2 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
-          {toast && (
-            <div className="flex items-center gap-3 rounded-2xl bg-ink px-4 py-3 text-sm text-bg shadow-lg">
-              <span className="min-w-0 flex-1 truncate">{toast.text}</span>
-              {toast.undo && (
-                <button
-                  onClick={() => {
-                    toast.undo?.();
-                    setToast(null);
-                  }}
-                  className="font-semibold text-accent-soft"
-                >
-                  Undo
-                </button>
-              )}
-            </div>
-          )}
+          {toastBar}
           {askQueue[0] && (
             <AskPrice
               key={askQueue[0] + askQueue.length}

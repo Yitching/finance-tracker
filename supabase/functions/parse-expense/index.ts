@@ -3,51 +3,16 @@
 // asks an AI model to split it into expenses, fills missing prices from
 // price memory, saves everything and returns the new rows.
 //
-// Provider is picked by the AI_PROVIDER secret: "groq" (free tier) or "anthropic".
-// If AI_PROVIDER isn't set, whichever API key exists is used (Anthropic first).
+// The AI provider is configured in ../_shared/ai.ts.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const CATEGORIES = [
-  "Food",
-  "Transport",
-  "Groceries",
-  "Shopping",
-  "Bills",
-  "Entertainment",
-  "Health",
-  "Others",
-] as const;
-
-const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-5-5";
-const GROQ_KEY = Deno.env.get("GROQ_API_KEY");
-const GROQ_MODEL = Deno.env.get("GROQ_MODEL") ?? "openai/gpt-oss-120b";
-
-const PROVIDER: "anthropic" | "groq" | null = (() => {
-  const chosen = Deno.env.get("AI_PROVIDER")?.toLowerCase();
-  if (chosen === "groq" || chosen === "anthropic") return chosen;
-  if (ANTHROPIC_KEY) return "anthropic";
-  if (GROQ_KEY) return "groq";
-  return null;
-})();
-
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, "Content-Type": "application/json" },
-  });
+import { aiConfigError, callTool, CATEGORIES, type Category } from "../_shared/ai.ts";
+import { cors, json } from "../_shared/http.ts";
 
 type ParsedItem = {
   item: string;
   amount: number | null;
-  category: (typeof CATEGORIES)[number];
+  category: Category;
   days_ago: number;
 };
 
@@ -110,86 +75,16 @@ Known items:
 ${known}`;
 }
 
-async function askClaude(text: string, system: string): Promise<ParsedItem[]> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": ANTHROPIC_KEY!,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: 1024,
-      system,
-      tools: [recordTool],
-      tool_choice: { type: "tool", name: "record_expenses" },
-      messages: [{ role: "user", content: text }],
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Claude API ${res.status}: ${await res.text()}`);
-  }
-
-  const data = await res.json();
-  const block = data.content?.find((b: { type: string }) => b.type === "tool_use");
-  return (block?.input?.expenses ?? []) as ParsedItem[];
-}
-
-// Groq uses the OpenAI-compatible chat completions format.
-async function askGroq(text: string, system: string): Promise<ParsedItem[]> {
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${GROQ_KEY}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      temperature: 0,
-      max_completion_tokens: 1024,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: text },
-      ],
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: recordTool.name,
-            description: recordTool.description,
-            parameters: recordTool.input_schema,
-          },
-        },
-      ],
-      tool_choice: { type: "function", function: { name: recordTool.name } },
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Groq API ${res.status}: ${await res.text()}`);
-  }
-
-  const data = await res.json();
-  const call = data.choices?.[0]?.message?.tool_calls?.[0];
-  if (!call) return [];
-  const args = JSON.parse(call.function.arguments ?? "{}");
-  return (args.expenses ?? []) as ParsedItem[];
-}
-
-function askAI(text: string, memory: Memory[]) {
-  const system = buildSystemPrompt(memory);
-  return PROVIDER === "groq" ? askGroq(text, system) : askClaude(text, system);
+async function askAI(text: string, memory: Memory[]): Promise<ParsedItem[]> {
+  const out = await callTool<{ expenses?: ParsedItem[] }>(buildSystemPrompt(memory), text, recordTool);
+  return out?.expenses ?? [];
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  if (PROVIDER === "anthropic" && !ANTHROPIC_KEY)
-    return json({ error: "ANTHROPIC_API_KEY secret is not set" }, 500);
-  if (PROVIDER === "groq" && !GROQ_KEY) return json({ error: "GROQ_API_KEY secret is not set" }, 500);
-  if (!PROVIDER) return json({ error: "Set GROQ_API_KEY or ANTHROPIC_API_KEY as a secret" }, 500);
+  const configError = aiConfigError();
+  if (configError) return json({ error: configError }, 500);
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "Not signed in" }, 401);

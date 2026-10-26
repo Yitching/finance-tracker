@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { dayLabel, money } from "../lib/money";
-import { CATEGORIES, CATEGORY_EMOJI, type Expense } from "../lib/types";
+import { CATEGORY_EMOJI, type Expense } from "../lib/types";
+import { CategoryPicker } from "./CategoryPicker";
 
 type Props = {
   expenses: Expense[];
@@ -105,19 +106,7 @@ function EditRow({
           className="w-24 rounded-xl bg-card px-3 py-2 text-right tabular-nums outline-none ring-1 ring-line focus:ring-accent"
         />
       </div>
-      <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4">
-        {CATEGORIES.map((c) => (
-          <button
-            key={c}
-            onClick={() => setCategory(c)}
-            className={`shrink-0 rounded-full px-3 py-1 text-sm ${
-              c === category ? "bg-accent text-white" : "bg-card ring-1 ring-line"
-            }`}
-          >
-            {CATEGORY_EMOJI[c]} {c}
-          </button>
-        ))}
-      </div>
+      <CategoryPicker value={category} onChange={setCategory} />
       <div className="flex gap-2 text-sm font-medium">
         <button onClick={onDelete} className="rounded-xl px-3 py-2 text-danger">
           Delete

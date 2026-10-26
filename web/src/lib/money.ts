@@ -18,7 +18,10 @@ export const startOfWeek = (d = new Date()) => {
 
 export const startOfMonth = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), 1);
 
-export const dayLabel = (iso: string) => {
+export const timeLabel = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-SG", { hour: "numeric", minute: "2-digit" });
+
+export const dayLabel =(iso: string) => {
   const d = startOfDay(new Date(iso));
   const today = startOfDay();
   const diff = Math.round((today.getTime() - d.getTime()) / 86_400_000);

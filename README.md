@@ -14,12 +14,24 @@ Type `kopi, chicken rice 5.5, grab 12` → AI splits it, prices what it remember
 - Installable PWA (Android home screen, long-press shortcut), light + dark mode
 - Row-level security: every row is locked to your account
 
+**Phase 2 adds**
+- 📥 Inbox banner on the home screen, e.g. "3 to confirm · $57.50", whenever captured charges are waiting
+- Swipe cards: right to keep, left to toss, or use the buttons. "Keep all" skips likely duplicates so you don't double-count
+- Duplicate check: if you typed "chicken rice 5.5" and UOB's alert for $5.50 arrives within 30 minutes, the alert is flagged
+- Merchant memory: edit "GRAB*A-6XYZ" to "Grab" / Transport once, and future Grab charges arrive already sorted
+- ⚙️ Settings: create a phone token, follow the built-in MacroDroid guide, and send a test with one tap. Sign out moved here too
+- Inbox zero gets a small 🎉 burst
+
 ```
 lazy-ledger/
 ├── supabase/
 │   ├── config.toml
 │   ├── migrations/20261026000000_init.sql   # tables, RLS, remember_item()
-│   └── functions/parse-expense/index.ts     # Haiku parsing edge function
+│   ├── migrations/20261026010000_inbox.sql  # phone tokens, merchant memory
+│   └── functions/
+│       ├── _shared/                         # AI provider + HTTP helpers
+│       ├── parse-expense/index.ts           # free text → expenses
+│       └── capture/index.ts                 # phone notification → Inbox
 └── web/                                     # Vite + React + TS + Tailwind PWA
 ```
 
@@ -50,6 +62,8 @@ npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 # npx supabase secrets set ANTHROPIC_MODEL=claude-haiku-5-5
 
 npx supabase functions deploy parse-expense
+# the phone posts here with its own token, not a Supabase login
+npx supabase functions deploy capture --no-verify-jwt
 ```
 
 ### 3. Configure sign-in
@@ -83,6 +97,15 @@ Then:
 3. Sign in from the installed app. Open the magic-link email on the phone.
 4. Drag the icon to your home screen dock. Long-press it for **Quick add**.
 
+### 6. Auto-capture from bank notifications (Android)
+Already on Phase 1? Pull, then run `npx supabase db push` and redeploy **both** functions
+(the commands in step 2): parse-expense now shares code with capture.
+
+In the app: ⚙️ → **Create phone token**, then follow the MacroDroid steps shown there.
+Your phone POSTs each notification to `https://YOUR_PROJECT_REF.supabase.co/functions/v1/capture` with
+`Authorization: Bearer ll_…` and a plain-text body. If a tool can't set headers, `?token=ll_…` on the URL works too.
+Only a hash of the token is stored; the plain token is shown on the device that created it.
+
 ---
 
 ## Troubleshooting
@@ -92,9 +115,11 @@ Then:
 | Magic link opens the wrong site | The URL isn't in **Redirect URLs**, or Site URL still points to localhost. |
 | Magic link email never arrives | Supabase's built-in mailer is rate-limited (a few per hour). Wait, or add custom SMTP under Auth settings. |
 | Blank screen locally | `.env.local` is missing or the values have quotes/spaces. |
+| Test notification: "Couldn't reach the capture endpoint" | Deploy it: `npx supabase functions deploy capture --no-verify-jwt`. |
+| Test works, real payments never arrive | MacroDroid needs notification access and **Unrestricted** battery use. Check its log for HTTP errors. |
+| Captured charge ignored | `npx supabase functions logs capture`. The AI drops OTPs, promos, incoming money and top-ups on purpose. |
 
 ## What's next
-- **Phase 2:** pending Inbox (swipe to confirm), `/api/capture` endpoint, duplicate detection
-- **Phase 3:** UOB alert-email parser, MacroDroid notification relay, Web Share Target for receipts
+- **Phase 3:** UOB alert-email parser, Web Share Target for receipts
 - **Phase 4:** recurring expenses, more chip smarts
 - **Phase 5:** weekly AI recap, "safe to spend today", monthly Wrapped
