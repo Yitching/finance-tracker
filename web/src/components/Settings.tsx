@@ -2,11 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { CAPTURE_URL, MACRODROID_BODY, sampleNotification, savedToken, saveToken } from "../lib/capture";
 import { dayLabel, money, timeLabel } from "../lib/money";
+import { applyTheme, savedTheme, type Theme } from "../lib/theme";
 import { CATEGORY_EMOJI, type MerchantRule } from "../lib/types";
 import { ScreenHeader } from "./ScreenHeader";
 
 type TokenInfo = { user_id: string; created_at: string; last_used_at: string | null };
 type TestResult = { ok: boolean; text: string };
+
+const THEMES: { value: Theme; label: string }[] = [
+  { value: "system", label: "📱 System" },
+  { value: "light", label: "☀️ Light" },
+  { value: "dark", label: "🌙 Dark" },
+];
 
 const when = (iso: string) => `${dayLabel(iso)}, ${timeLabel(iso)}`;
 
@@ -18,6 +25,7 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<TestResult | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [theme, setTheme] = useState<Theme>(() => savedTheme());
 
   const load = useCallback(async () => {
     const [tok, rul, ses] = await Promise.all([
@@ -119,6 +127,26 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
   return (
     <div className="flex flex-1 flex-col space-y-5 px-4 pb-24">
       <ScreenHeader title="Settings" subtitle={email || " "} onBack={onBack} />
+
+      <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
+        <h2 className="text-lg font-semibold">🎨 Appearance</h2>
+        <div className="flex gap-1 rounded-full bg-bg p-1 text-sm">
+          {THEMES.map((t) => (
+            <button
+              key={t.value}
+              onClick={() => {
+                applyTheme(t.value);
+                setTheme(t.value);
+              }}
+              className={`flex-1 rounded-full px-3 py-1.5 font-medium transition ${
+                theme === t.value ? "bg-card shadow-sm" : "text-ink-soft"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="space-y-4 rounded-3xl bg-card p-5 ring-1 ring-line">
         <div>

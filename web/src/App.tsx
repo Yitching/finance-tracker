@@ -3,16 +3,18 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { useLedger } from "./lib/useLedger";
 import { findDuplicates } from "./lib/duplicates";
+import { shrinkPhoto } from "./lib/image";
 import { money, startOfDay, startOfWeek } from "./lib/money";
 import type { Expense, Remembered } from "./lib/types";
 import { Login } from "./components/Login";
 import { QuickAdd } from "./components/QuickAdd";
 import { Chips } from "./components/Chips";
-import { Summary } from "./components/Summary";
+import { Summary, SummaryStrip } from "./components/Summary";
 import { RecentList } from "./components/RecentList";
 import { AskPrice } from "./components/AskPrice";
 import { Inbox, InboxBanner } from "./components/Inbox";
 import { Settings } from "./components/Settings";
+import { ScreenHeader } from "./components/ScreenHeader";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -28,11 +30,23 @@ export default function App() {
 }
 
 type Toast = { text: string; undo?: () => void };
-type View = "home" | "inbox" | "settings";
+type View = "home" | "spending" | "inbox" | "settings";
 
 function Home() {
-  const { expenses, pending, memory, loading, addText, addDirect, remove, restore, update, setStatus, refresh } =
-    useLedger();
+  const {
+    expenses,
+    pending,
+    memory,
+    loading,
+    addText,
+    addReceipt,
+    addDirect,
+    remove,
+    restore,
+    update,
+    setStatus,
+    refresh,
+  } = useLedger();
   const [view, setView] = useState<View>("home");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -84,6 +98,35 @@ function Home() {
     navigator.vibrate?.(15);
     const row = await addDirect(m.display_name, m.last_amount, m.category, "chip");
     showToast({ text: `Added ${describe([row])}`, undo: () => void remove([row.id]) });
+  }
+
+  async function handleRemembered(item: string, amount: number, category: string) {
+    const row = await addDirect(item, amount, category, "memory");
+    showToast({ text: `Added ${describe([row])}`, undo: () => void remove([row.id]) });
+  }
+
+  // Receipt items go to the Inbox to check, since a photo can be misread.
+  async function handlePhoto(file: File) {
+    setBusy(true);
+    try {
+      const { saved, store, notReceipt } = await addReceipt(await shrinkPhoto(file));
+      if (saved.length) {
+        const ids = saved.map((r) => r.id);
+        showToast({
+          text: `🧾 ${store ? `${store}: ` : ""}${describe(saved)} to check`,
+          undo: () => void remove(ids),
+        });
+        open("inbox");
+      } else {
+        showToast({
+          text: notReceipt ? "That doesn't look like a receipt 🤔" : "Couldn't find any items on that receipt",
+        });
+      }
+    } catch {
+      showToast({ text: "Couldn't read the receipt. Try a clearer photo?" });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleAskedPrice(item: string, amount: number) {
@@ -150,10 +193,22 @@ function Home() {
     </div>
   );
 
+  // Home only lists today and yesterday; the full history lives in Spending.
+  const recent = useMemo(() => {
+    const from = startOfDay(new Date(Date.now() - 86_400_000)).getTime();
+    return expenses.filter((e) => new Date(e.spent_at).getTime() >= from);
+  }, [expenses]);
+
   if (view !== "home") {
     return (
       <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
-        {view === "inbox" ? (
+        {view === "spending" ? (
+          <div className="flex flex-1 flex-col space-y-5 px-4 pb-24">
+            <ScreenHeader title="Spending" onBack={goHome} />
+            <Summary expenses={expenses} />
+            <RecentList expenses={expenses} onDelete={handleDelete} onUpdate={update} />
+          </div>
+        ) : view === "inbox" ? (
           <Inbox
             pending={pending}
             duplicates={duplicates}
@@ -199,8 +254,11 @@ function Home() {
         ) : (
           <>
             {pending.length > 0 && <InboxBanner pending={pending} onOpen={() => open("inbox")} />}
-            <Summary expenses={expenses} />
-            <RecentList expenses={expenses} onDelete={handleDelete} onUpdate={update} />
+            <Chips memory={memory} onTap={(m) => void handleChip(m)} />
+            <SummaryStrip expenses={expenses} onOpen={() => open("spending")} />
+            {(recent.length > 0 || expenses.length === 0) && (
+              <RecentList expenses={recent} onDelete={handleDelete} onUpdate={update} />
+            )}
           </>
         )}
       </main>
@@ -217,8 +275,13 @@ function Home() {
               onSkip={() => setAskQueue((q) => q.slice(1))}
             />
           )}
-          <Chips memory={memory} onTap={(m) => void handleChip(m)} />
-          <QuickAdd onSubmit={handleText} busy={busy} />
+          <QuickAdd
+            onSubmit={handleText}
+            onRemembered={handleRemembered}
+            onPhoto={handlePhoto}
+            memory={memory}
+            busy={busy}
+          />
         </div>
       </div>
     </div>

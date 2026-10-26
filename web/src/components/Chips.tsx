@@ -11,6 +11,7 @@ type Props = {
  * One-tap logging for things you buy all the time.
  * Ranked by how often you buy each item around this hour of the day,
  * so 8am shows kopi and 12:30pm shows your usual lunch.
+ * Lives at the top of Home, well away from the text box, so it's hard to tap by accident.
  */
 export function Chips({ memory, onTap }: Props) {
   const chips = useMemo(() => {
@@ -29,18 +30,23 @@ export function Chips({ memory, onTap }: Props) {
   if (!chips.length) return null;
 
   return (
-    <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-2">
-      {chips.map((m) => (
-        <button
-          key={m.item_key}
-          onClick={() => onTap(m)}
-          className="flex shrink-0 items-center gap-1.5 rounded-full bg-card px-3.5 py-2 text-sm shadow-sm ring-1 ring-line transition active:scale-95"
-        >
-          <span>{CATEGORY_EMOJI[m.category] ?? "📦"}</span>
-          <span className="font-medium">{m.display_name}</span>
-          <span className="text-ink-soft">{money(m.last_amount)}</span>
-        </button>
-      ))}
-    </div>
+    <section>
+      <div className="mb-1.5 px-1 text-xs font-semibold tracking-wide text-ink-faint uppercase">
+        Usual around now · one tap
+      </div>
+      <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        {chips.map((m) => (
+          <button
+            key={m.item_key}
+            onClick={() => onTap(m)}
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-card px-3.5 py-2 text-sm shadow-sm ring-1 ring-line transition active:scale-95"
+          >
+            <span>{CATEGORY_EMOJI[m.category] ?? "📦"}</span>
+            <span className="font-medium">{m.display_name}</span>
+            <span className="text-ink-soft">{money(m.last_amount)}</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

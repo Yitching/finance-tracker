@@ -16,6 +16,9 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number];
 
+/** A base64-encoded photo, e.g. a receipt. */
+export type Image = { mediaType: string; data: string };
+
 export type Tool = {
   name: string;
   description: string;
@@ -26,6 +29,8 @@ const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-5-5";
 const GROQ_KEY = Deno.env.get("GROQ_API_KEY");
 const GROQ_MODEL = Deno.env.get("GROQ_MODEL") ?? "openai/gpt-oss-120b";
+// Used instead of GROQ_MODEL when there's a photo: the default text model can't see images.
+const GROQ_VISION_MODEL = Deno.env.get("GROQ_VISION_MODEL") ?? "meta-llama/llama-4-scout-17b-16e-instruct";
 
 const PROVIDER: "anthropic" | "groq" | null = (() => {
   const chosen = Deno.env.get("AI_PROVIDER")?.toLowerCase();
@@ -43,7 +48,14 @@ export function aiConfigError(): string | null {
   return null;
 }
 
-async function askClaude(system: string, text: string, tool: Tool): Promise<unknown> {
+async function askClaude(system: string, text: string, tool: Tool, image?: Image): Promise<unknown> {
+  const content = image
+    ? [
+        { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
+        { type: "text", text },
+      ]
+    : text;
+
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -53,11 +65,11 @@ async function askClaude(system: string, text: string, tool: Tool): Promise<unkn
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      max_tokens: 1024,
+      max_tokens: 2048,
       system,
       tools: [tool],
       tool_choice: { type: "tool", name: tool.name },
-      messages: [{ role: "user", content: text }],
+      messages: [{ role: "user", content }],
     }),
   });
 
@@ -71,7 +83,14 @@ async function askClaude(system: string, text: string, tool: Tool): Promise<unkn
 }
 
 // Groq uses the OpenAI-compatible chat completions format.
-async function askGroq(system: string, text: string, tool: Tool): Promise<unknown> {
+async function askGroq(system: string, text: string, tool: Tool, image?: Image): Promise<unknown> {
+  const content = image
+    ? [
+        { type: "text", text },
+        { type: "image_url", image_url: { url: `data:${image.mediaType};base64,${image.data}` } },
+      ]
+    : text;
+
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -79,12 +98,12 @@ async function askGroq(system: string, text: string, tool: Tool): Promise<unknow
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: GROQ_MODEL,
+      model: image ? GROQ_VISION_MODEL : GROQ_MODEL,
       temperature: 0,
-      max_completion_tokens: 1024,
+      max_completion_tokens: 2048,
       messages: [
         { role: "system", content: system },
-        { role: "user", content: text },
+        { role: "user", content },
       ],
       tools: [
         {
@@ -111,9 +130,14 @@ async function askGroq(system: string, text: string, tool: Tool): Promise<unknow
 }
 
 /** The tool input the model answered with, or null if it didn't call the tool. */
-export async function callTool<T>(system: string, text: string, tool: Tool): Promise<T | null> {
+export async function callTool<T>(
+  system: string,
+  text: string,
+  tool: Tool,
+  image?: Image,
+): Promise<T | null> {
   const input = PROVIDER === "groq"
-    ? await askGroq(system, text, tool)
-    : await askClaude(system, text, tool);
+    ? await askGroq(system, text, tool, image)
+    : await askClaude(system, text, tool, image);
   return (input ?? null) as T | null;
 }

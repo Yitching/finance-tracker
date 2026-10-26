@@ -14,8 +14,14 @@
   --color-danger: #d1495b;
 }
 
+/* Dark follows the phone unless Settings picks one: <html data-theme="light|dark">. */
+:root {
+  color-scheme: light;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --color-bg: #141412;
     --color-card: #1e1d1b;
     --color-ink: #f2efe9;
@@ -27,6 +33,20 @@
     --color-good: #45c9a3;
     --color-danger: #ef6f80;
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #141412;
+  --color-card: #1e1d1b;
+  --color-ink: #f2efe9;
+  --color-ink-soft: #b3ada3;
+  --color-ink-faint: #7d776e;
+  --color-line: #2c2a27;
+  --color-accent: #2bb38d;
+  --color-accent-soft: #0f8a6a;
+  --color-good: #45c9a3;
+  --color-danger: #ef6f80;
 }
 
 html,

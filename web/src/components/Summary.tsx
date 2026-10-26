@@ -2,6 +2,39 @@ import { useMemo, useState } from "react";
 import { money, startOfDay, startOfMonth, startOfWeek } from "../lib/money";
 import { CATEGORY_EMOJI, type Expense } from "../lib/types";
 
+/** Home's one-liner: "Today $12.30 · This week $84.10 ›", opens the full breakdown. */
+export function SummaryStrip({ expenses, onOpen }: { expenses: Expense[]; onOpen: () => void }) {
+  const { today, week } = useMemo(() => {
+    const d = startOfDay().getTime();
+    const w = startOfWeek().getTime();
+    let today = 0;
+    let week = 0;
+    for (const e of expenses) {
+      const t = new Date(e.spent_at).getTime();
+      if (t >= w) week += e.amount;
+      if (t >= d) today += e.amount;
+    }
+    return { today, week };
+  }, [expenses]);
+
+  return (
+    <button
+      onClick={onOpen}
+      className="flex w-full items-center gap-4 rounded-2xl bg-card px-4 py-3 text-left ring-1 ring-line active:scale-[0.99]"
+    >
+      <span className="flex-1">
+        <span className="block text-xs text-ink-faint">Today</span>
+        <span className="text-xl font-bold tabular-nums">{money(today)}</span>
+      </span>
+      <span className="flex-1">
+        <span className="block text-xs text-ink-faint">This week</span>
+        <span className="text-xl font-bold tabular-nums">{money(week)}</span>
+      </span>
+      <span className="text-sm font-medium text-accent">Breakdown ›</span>
+    </button>
+  );
+}
+
 type Range = "today" | "week" | "month";
 
 const RANGE_LABEL: Record<Range, string> = { today: "Today", week: "This week", month: "This month" };

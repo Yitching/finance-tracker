@@ -22,6 +22,13 @@ Type `kopi, chicken rice 5.5, grab 12` → AI splits it, prices what it remember
 - ⚙️ Settings: create a phone token, follow the built-in MacroDroid guide, and send a test with one tap. Sign out moved here too
 - Inbox zero gets a small 🎉 burst
 
+**Phase 2.5**
+- 🧾 Receipt photo: tap 📷, and a vision model lists the items into your Inbox to check
+- Price memory while you type: "kopi" shows $1.80 ready to go, still editable; Enter logs it without an AI call
+- Quick-tap chips moved to the top ("Usual around now"), away from the text box, so they're hard to hit by accident
+- Opens straight into the text box; the full dashboard is one tap away ("Today · This week ›")
+- Light / Dark / System switch in ⚙️ Settings
+
 ```
 lazy-ledger/
 ├── supabase/
@@ -31,6 +38,7 @@ lazy-ledger/
 │   └── functions/
 │       ├── _shared/                         # AI provider + HTTP helpers
 │       ├── parse-expense/index.ts           # free text → expenses
+│       ├── parse-receipt/index.ts           # receipt photo → Inbox
 │       └── capture/index.ts                 # phone notification → Inbox
 └── web/                                     # Vite + React + TS + Tailwind PWA
 ```
@@ -62,6 +70,7 @@ npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 # npx supabase secrets set ANTHROPIC_MODEL=claude-haiku-5-5
 
 npx supabase functions deploy parse-expense
+npx supabase functions deploy parse-receipt
 # the phone posts here with its own token, not a Supabase login
 npx supabase functions deploy capture --no-verify-jwt
 ```
@@ -117,6 +126,7 @@ Only a hash of the token is stored; the plain token is shown on the device that 
 | Blank screen locally | `.env.local` is missing or the values have quotes/spaces. |
 | Test notification: "Couldn't reach the capture endpoint" | Deploy it: `npx supabase functions deploy capture --no-verify-jwt`. |
 | Test works, real payments never arrive | MacroDroid needs notification access and **Unrestricted** battery use. Check its log for HTTP errors. |
+| Receipt: "Couldn't read that receipt" | On Groq, set a vision model: `npx supabase secrets set GROQ_VISION_MODEL=...` (default `meta-llama/llama-4-scout-17b-16e-instruct`). Check `npx supabase functions logs parse-receipt`. |
 | Captured charge ignored | `npx supabase functions logs capture`. The AI drops OTPs, promos, incoming money and top-ups on purpose. |
 
 ## What's next

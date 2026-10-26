@@ -61,6 +61,21 @@ export function useLedger() {
     [refresh],
   );
 
+  /** Receipt photo (base64 JPEG) → AI → pending rows in the Inbox. */
+  const addReceipt = useCallback(
+    async (image: string) => {
+      const { data, error } = await supabase.functions.invoke<{
+        saved: Expense[];
+        store: string | null;
+        notReceipt?: boolean;
+      }>("parse-receipt", { body: { image, mediaType: "image/jpeg" } });
+      if (error) throw error;
+      await refresh();
+      return data ?? { saved: [], store: null };
+    },
+    [refresh],
+  );
+
   /** Direct insert, no AI. Used by quick chips and "how much was X?" prompts. */
   const addDirect = useCallback(
     async (item: string, amount: number, category: string, source = "manual") => {
@@ -138,6 +153,7 @@ export function useLedger() {
     memory,
     loading,
     addText,
+    addReceipt,
     addDirect,
     remove,
     restore,
