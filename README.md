@@ -28,6 +28,8 @@ Type `kopi, chicken rice 5.5, grab 12` → AI splits it, prices what it remember
 - Quick-tap chips moved to the top ("Usual around now"), away from the text box, so they're hard to hit by accident
 - Opens straight into the text box; the full dashboard is one tap away ("Today · This week ›")
 - Light / Dark / System switch in ⚙️ Settings
+- PayNow alerts with no amount ("You've sent money to JOHN TAN") still reach the Inbox, which asks "How much?" before you keep them
+- Settings simulations: a card charge, a PayNow sent with no amount, and a PayNow received (should be ignored)
 
 ```
 lazy-ledger/

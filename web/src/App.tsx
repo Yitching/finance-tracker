@@ -5,7 +5,7 @@ import { useLedger } from "./lib/useLedger";
 import { findDuplicates } from "./lib/duplicates";
 import { shrinkPhoto } from "./lib/image";
 import { money, startOfDay, startOfWeek } from "./lib/money";
-import type { Expense, Remembered } from "./lib/types";
+import type { Expense, PendingExpense, Remembered } from "./lib/types";
 import { Login } from "./components/Login";
 import { QuickAdd } from "./components/QuickAdd";
 import { Chips } from "./components/Chips";
@@ -72,9 +72,12 @@ function Home() {
     toastTimer.current = window.setTimeout(() => setToast(null), 5000);
   }
 
-  function describe(rows: Expense[]) {
-    if (rows.length === 1) return `${rows[0].item} ${money(rows[0].amount)}`;
-    return `${rows.length} items · ${money(rows.reduce((s, r) => s + r.amount, 0))}`;
+  function describe(rows: PendingExpense[]) {
+    if (rows.length === 1) {
+      const [r] = rows;
+      return r.amount === null ? r.item : `${r.item} ${money(r.amount)}`;
+    }
+    return `${rows.length} items · ${money(rows.reduce((s, r) => s + (r.amount ?? 0), 0))}`;
   }
 
   async function handleText(text: string) {
@@ -142,25 +145,28 @@ function Home() {
 
   const duplicates = useMemo(() => findDuplicates(pending, expenses), [pending, expenses]);
 
-  function handleKeep(e: Expense) {
-    void setStatus([e.id], "confirmed");
-    showToast({ text: `Kept ${describe([e])}`, undo: () => void setStatus([e.id], "pending") });
+  function handleKeep(e: PendingExpense, amount?: number) {
+    void setStatus([e.id], "confirmed", amount);
+    showToast({
+      text: `Kept ${describe([{ ...e, amount: amount ?? e.amount }])}`,
+      undo: () => void setStatus([e.id], "pending"),
+    });
   }
 
-  function handleToss(e: Expense) {
+  function handleToss(e: PendingExpense) {
     void remove([e.id]);
     showToast({ text: `Tossed ${describe([e])}`, undo: () => void restore([e]) });
   }
 
-  // Likely duplicates stay behind for a manual call, so nothing is counted twice.
+  // Likely duplicates and charges with no amount stay behind for a manual call.
   function handleKeepAll() {
-    const keep = pending.filter((e) => !duplicates.has(e.id));
+    const keep = pending.filter((e) => !duplicates.has(e.id) && e.amount !== null);
     if (!keep.length) return;
     const ids = keep.map((e) => e.id);
     void setStatus(ids, "confirmed");
     const skipped = pending.length - keep.length;
     showToast({
-      text: `Kept ${describe(keep)}${skipped ? ` · ${skipped} duplicate${skipped > 1 ? "s" : ""} left` : ""}`,
+      text: `Kept ${describe(keep)}${skipped ? ` · ${skipped} left to check` : ""}`,
       undo: () => void setStatus(ids, "pending"),
     });
   }

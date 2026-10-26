@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { CAPTURE_URL, MACRODROID_BODY, sampleNotification, savedToken, saveToken } from "../lib/capture";
+import {
+  CAPTURE_URL,
+  MACRODROID_BODY,
+  savedToken,
+  saveToken,
+  SIMULATIONS,
+  simulationText,
+  type Simulation,
+} from "../lib/capture";
 import { dayLabel, money, timeLabel } from "../lib/money";
 import { applyTheme, savedTheme, type Theme } from "../lib/theme";
 import { CATEGORY_EMOJI, type MerchantRule } from "../lib/types";
@@ -84,7 +92,7 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
     await load();
   }
 
-  async function sendTest() {
+  async function sendTest(sim: Simulation) {
     setBusy(true);
     setResult(null);
     try {
@@ -92,21 +100,34 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
       const res = await fetch(CAPTURE_URL, {
         method: "POST",
         headers: { Authorization: `Bearer ${auth}`, "Content-Type": "text/plain" },
-        body: sampleNotification(),
+        body: simulationText(sim),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setResult({ ok: false, text: body.error ?? `The capture endpoint answered ${res.status}.` });
-      } else if (body.status === "pending") {
-        setResult({
-          ok: true,
-          text: `It works: ${body.expense.item} ${money(Number(body.expense.amount))} is waiting in your Inbox. Toss it when you're done.`,
-        });
+        return;
+      }
+
+      if (body.status === "pending") {
         onCaptured();
         void load();
-      } else {
-        setResult({ ok: false, text: `The endpoint answered, but ignored the sample (${body.reason}).` });
       }
+      const got =
+        body.status !== "pending" ? "ignored" : body.needsAmount ? "pending-no-amount" : "pending";
+      const what =
+        body.status !== "pending"
+          ? `ignored it (${body.reason})`
+          : body.needsAmount
+            ? `put ${body.expense.item} in your Inbox, asking for the amount`
+            : `put ${body.expense.item} ${money(Number(body.expense.amount))} in your Inbox`;
+      setResult(
+        got === sim.expect
+          ? {
+              ok: true,
+              text: `As expected: it ${what}.${body.status === "pending" ? " Toss it when you're done." : ""}`,
+            }
+          : { ok: false, text: `Unexpected: it ${what}.` },
+      );
     } catch {
       setResult({
         ok: false,
@@ -231,24 +252,28 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
               Save the macro. In Android settings, set MacroDroid's battery use to <b>Unrestricted</b> so it
               keeps running in the background.
             </li>
-            <li>Send a test below, then buy something small and watch it arrive 🎯</li>
+            <li>Run a simulation below, then buy something small and watch it arrive 🎯</li>
           </ol>
         </section>
       )}
 
       <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
-        <h2 className="text-lg font-semibold">🧪 Send a test</h2>
+        <h2 className="text-lg font-semibold">🧪 Simulate a notification</h2>
         <p className="text-sm text-ink-soft">
-          Sends a sample UOB card alert for $5.50 at GRAB*A-6XYZ through the same path as your phone.
+          Sends a sample alert through the same path as your phone and checks what happens.
           {!token && " This device doesn't hold the phone token, so it signs in with your login instead."}
         </p>
-        <button
-          onClick={() => void sendTest()}
-          disabled={busy}
-          className="w-full rounded-2xl bg-bg px-4 py-3 font-semibold ring-1 ring-line active:scale-[0.98] disabled:opacity-60"
-        >
-          {busy ? "Sending…" : "Send a test notification"}
-        </button>
+        {SIMULATIONS.map((sim) => (
+          <button
+            key={sim.id}
+            onClick={() => void sendTest(sim)}
+            disabled={busy}
+            className="w-full rounded-2xl bg-bg px-4 py-3 text-left text-sm font-semibold ring-1 ring-line active:scale-[0.98] disabled:opacity-60"
+          >
+            {sim.label}
+          </button>
+        ))}
+        {busy && <p className="text-sm text-ink-soft">Sending…</p>}
         {result && (
           <p className={`text-sm ${result.ok ? "text-good" : "text-danger"}`}>
             {result.ok ? "✓ " : "✕ "}

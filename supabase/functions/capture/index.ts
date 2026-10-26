@@ -2,6 +2,8 @@
 // Your phone (MacroDroid) posts every bank or payment notification here.
 // The AI decides whether it's money you spent. If so, it lands in the Inbox
 // as a pending expense; OTPs, promos and incoming money are ignored.
+// Alerts that don't say how much (common for PayNow) still come in, with no
+// amount, and the Inbox asks you for it.
 //
 // Auth: the phone token from Settings, as "Authorization: Bearer ll_..." or
 // "?token=ll_..." for tools that can't set headers. The app's test button may
@@ -49,7 +51,8 @@ const classifyTool = {
       },
       amount: {
         type: ["number", "null"],
-        description: "Amount spent in SGD. null unless kind is spend.",
+        description:
+          "Amount spent in SGD. null if the notification doesn't show it (common for PayNow), or unless kind is spend. Never guess.",
       },
       category: { type: "string", enum: CATEGORIES },
     },
@@ -60,15 +63,16 @@ const classifyTool = {
 const SYSTEM = `You read ONE phone notification, usually from a Singapore bank, card or payment app, and decide whether it shows money the user just spent.
 kind:
 - "spend": a card charge, NETS / PayNow / PayLah! / GrabPay / ShopeePay payment, bill payment, or money the user sent to someone.
+  Money going OUT counts even when no amount is shown, e.g. "You've sent money to JOHN TAN via PayNow".
 - "otp": one-time passwords, verification codes, login or new-device alerts.
 - "promo": promotions, offers, cashback adverts, newsletters.
-- "incoming": money received, refunds, reversals, salary, interest.
+- "incoming": money received, refunds, reversals, salary, interest. Read the direction carefully: "received from X" / "X sent you" is incoming; "sent to X" / "transferred to X" / "paid X" is spend.
 - "declined": failed, declined or cancelled transactions.
 - "other": anything else, including balance updates, statements, moving money between the user's own accounts or wallets (top-ups), and non-finance apps.
 For "spend":
 - merchant: the merchant or recipient exactly as written in the notification, e.g. "GRAB*A-6XYZ" or "NTUC FP-BEDOK".
 - item: a short friendly name in Title Case, e.g. "Grab", "NTUC FairPrice", "Shopee". For a transfer to a person, use their name.
-- amount: the amount in SGD as a number. If only a foreign-currency amount is shown, use that number.
+- amount: the amount in SGD as a number. If only a foreign-currency amount is shown, use that number. If no amount is shown at all, null. Never guess.
 - category: your best guess.
 For any other kind, set merchant, item and amount to null and category to "Others".
 Always answer by calling the classify_notification tool.`;
@@ -150,8 +154,9 @@ Deno.serve(async (req) => {
     return json({ status: "ignored", reason: verdict?.kind ?? "other" });
   }
 
-  const amount = Math.round(Number(verdict.amount) * 100) / 100;
-  if (!Number.isFinite(amount) || amount <= 0) return json({ status: "ignored", reason: "no amount" });
+  // No amount (e.g. "You've sent money to JOHN TAN via PayNow"): keep it anyway, the Inbox asks for it.
+  const said = verdict.amount === null || verdict.amount === undefined ? NaN : Number(verdict.amount);
+  const amount = Number.isFinite(said) && said > 0 ? Math.round(said * 100) / 100 : null;
 
   const merchant = verdict.merchant?.trim() || null;
   let item = verdict.item?.trim() || merchant || "Card payment";
@@ -188,5 +193,5 @@ Deno.serve(async (req) => {
     console.error(error);
     return json({ error: "Couldn't save it" }, 500);
   }
-  return json({ status: "pending", expense: row });
+  return json({ status: "pending", expense: row, needsAmount: amount === null });
 });

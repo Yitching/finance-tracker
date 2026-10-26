@@ -23,8 +23,40 @@ export function saveToken(token: string | null) {
   }
 }
 
-/** A realistic UOB card alert. The time makes each test unique, so it isn't dropped as a repeat. */
-export function sampleNotification() {
-  const now = new Date().toLocaleString("en-SG", { dateStyle: "short", timeStyle: "medium" });
-  return `UOB TMRW\nCard Transaction Alert\nA transaction of SGD 5.50 was made with your UOB Card ending 1234 on ${now} at GRAB*A-6XYZ. If unauthorised, call 24/7 Fraud Hotline now.`;
+export type Simulation = {
+  id: string;
+  label: string;
+  /** What the capture endpoint should do with it. */
+  expect: "pending" | "pending-no-amount" | "ignored";
+  text: (now: string) => string;
+};
+
+/** Realistic notifications for Settings' test buttons. */
+export const SIMULATIONS: Simulation[] = [
+  {
+    id: "card",
+    label: "💳 Card charge · $5.50 at GRAB*A-6XYZ",
+    expect: "pending",
+    text: (now) =>
+      `UOB TMRW\nCard Transaction Alert\nA transaction of SGD 5.50 was made with your UOB Card ending 1234 on ${now} at GRAB*A-6XYZ. If unauthorised, call 24/7 Fraud Hotline now.`,
+  },
+  {
+    id: "paynow-out",
+    label: "📤 PayNow sent · no amount shown",
+    expect: "pending-no-amount",
+    text: (now) =>
+      `DBS digibank\nTransfer successful\nYou've sent money to JOHN TAN via PayNow on ${now}. Ref: 7XK2Q9.`,
+  },
+  {
+    id: "paynow-in",
+    label: "📥 PayNow received · should be ignored",
+    expect: "ignored",
+    text: (now) =>
+      `UOB TMRW\nPayNow received\nYou have received SGD 20.00 from JOHN TAN via PayNow on ${now}.`,
+  },
+];
+
+/** The time makes each test unique, so it isn't dropped as a repeat. */
+export function simulationText(sim: Simulation) {
+  return sim.text(new Date().toLocaleString("en-SG", { dateStyle: "short", timeStyle: "medium" }));
 }

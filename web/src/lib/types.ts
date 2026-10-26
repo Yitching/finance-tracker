@@ -36,6 +36,12 @@ export type Expense = {
   created_at: string;
 };
 
+/**
+ * A captured charge waiting in the Inbox. Some alerts (often PayNow) don't say
+ * how much, so amount stays null until you fill it in.
+ */
+export type PendingExpense = Omit<Expense, "amount"> & { amount: number | null };
+
 export type MerchantRule = {
   merchant_key: string;
   example: string | null;

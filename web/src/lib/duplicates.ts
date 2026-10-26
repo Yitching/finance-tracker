@@ -1,4 +1,4 @@
-import type { Expense } from "./types";
+import type { Expense, PendingExpense } from "./types";
 
 /** You typed it yourself around the time the bank alert came in. */
 const CONFIRMED_WINDOW = 30 * 60_000;
@@ -6,18 +6,20 @@ const CONFIRMED_WINDOW = 30 * 60_000;
 const PENDING_WINDOW = 5 * 60_000;
 
 const cents = (n: number) => Math.round(n * 100);
-const time = (e: Expense) => new Date(e.spent_at).getTime();
+const time = (e: PendingExpense) => new Date(e.spent_at).getTime();
 
 /**
  * For each pending expense, the expense it most likely repeats, if any:
  * same amount as something already logged within 30 minutes, or as an
- * earlier pending alert within 5 minutes.
+ * earlier pending alert within 5 minutes. Alerts with no amount can't be matched.
  */
-export function findDuplicates(pending: Expense[], confirmed: Expense[]) {
-  const out = new Map<string, Expense>();
+export function findDuplicates(pending: PendingExpense[], confirmed: Expense[]) {
+  const out = new Map<string, PendingExpense>();
   for (const p of pending) {
-    const near = (e: Expense, window: number) =>
-      cents(e.amount) === cents(p.amount) && Math.abs(time(e) - time(p)) <= window;
+    if (p.amount === null) continue;
+    const amount = cents(p.amount);
+    const near = (e: PendingExpense, window: number) =>
+      e.amount !== null && cents(e.amount) === amount && Math.abs(time(e) - time(p)) <= window;
     const match =
       confirmed.find((e) => near(e, CONFIRMED_WINDOW)) ??
       pending.find((e) => e.id !== p.id && e.created_at < p.created_at && near(e, PENDING_WINDOW));

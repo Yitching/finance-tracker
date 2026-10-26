@@ -1,35 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 import { dayLabel, money, timeLabel } from "../lib/money";
-import { CATEGORY_EMOJI, type Expense } from "../lib/types";
+import { CATEGORY_EMOJI, type Expense, type PendingExpense } from "../lib/types";
 import { CategoryPicker } from "./CategoryPicker";
 import { ScreenHeader } from "./ScreenHeader";
 
 type Patch = Partial<Pick<Expense, "item" | "amount" | "category">>;
 
-const sum = (rows: Expense[]) => rows.reduce((s, e) => s + e.amount, 0);
+const sum = (rows: PendingExpense[]) => rows.reduce((s, e) => s + (e.amount ?? 0), 0);
+
+/** "3 to confirm · $57.50", plus how many still need an amount. */
+function headline(rows: PendingExpense[]) {
+  const unpriced = rows.filter((e) => e.amount === null).length;
+  return `${rows.length} to confirm · ${money(sum(rows))}${unpriced ? ` · ${unpriced} without amount` : ""}`;
+}
 
 /** Home-screen nudge: "3 to confirm · $57.50". */
-export function InboxBanner({ pending, onOpen }: { pending: Expense[]; onOpen: () => void }) {
+export function InboxBanner({ pending, onOpen }: { pending: PendingExpense[]; onOpen: () => void }) {
   return (
     <button
       onClick={onOpen}
       className="flex w-full items-center gap-3 rounded-2xl bg-accent px-4 py-3.5 text-left text-white shadow-sm transition active:scale-[0.98]"
     >
       <span className="text-xl">📥</span>
-      <span className="flex-1 font-semibold">
-        {pending.length} to confirm · <span className="tabular-nums">{money(sum(pending))}</span>
-      </span>
+      <span className="flex-1 font-semibold tabular-nums">{headline(pending)}</span>
       <span className="text-2xl leading-none">›</span>
     </button>
   );
 }
 
 type Props = {
-  pending: Expense[];
+  pending: PendingExpense[];
   /** pending id → the expense it probably repeats */
-  duplicates: Map<string, Expense>;
-  onKeep: (e: Expense) => void;
-  onToss: (e: Expense) => void;
+  duplicates: Map<string, PendingExpense>;
+  /** `amount` is set when you filled in a charge that arrived without one. */
+  onKeep: (e: PendingExpense, amount?: number) => void;
+  onToss: (e: PendingExpense) => void;
   onKeepAll: () => void;
   onUpdate: (id: string, patch: Patch) => void;
   onBack: () => void;
@@ -50,8 +55,13 @@ export function Inbox({ pending, duplicates, onKeep, onToss, onKeepAll, onUpdate
     }
   }, [pending.length]);
 
-  const keepable = pending.filter((e) => !duplicates.has(e.id)).length;
-  const skipped = pending.length - keepable;
+  const dupes = pending.filter((e) => duplicates.has(e.id)).length;
+  const unpriced = pending.filter((e) => e.amount === null).length;
+  const keepable = pending.filter((e) => !duplicates.has(e.id) && e.amount !== null).length;
+  const skips = [
+    dupes && `${dupes} likely duplicate${dupes > 1 ? "s" : ""}`,
+    unpriced && `${unpriced} without an amount`,
+  ].filter(Boolean);
   const top = pending[0];
 
   return (
@@ -59,11 +69,7 @@ export function Inbox({ pending, duplicates, onKeep, onToss, onKeepAll, onUpdate
       <ScreenHeader
         title="Inbox"
         onBack={onBack}
-        subtitle={
-          pending.length
-            ? `${pending.length} to confirm · ${money(sum(pending))}`
-            : "Nothing waiting"
-        }
+        subtitle={pending.length ? headline(pending) : "Nothing waiting"}
         action={
           keepable > 0 && (
             <button
@@ -78,17 +84,15 @@ export function Inbox({ pending, duplicates, onKeep, onToss, onKeepAll, onUpdate
 
       {top ? (
         <>
-          {skipped > 0 && keepable > 0 && (
-            <p className="mb-3 text-sm text-ink-soft">
-              “Keep all” skips {skipped} likely duplicate{skipped > 1 ? "s" : ""}, so nothing is counted twice.
-            </p>
+          {skips.length > 0 && keepable > 0 && (
+            <p className="mb-3 text-sm text-ink-soft">“Keep all” skips {skips.join(" and ")}.</p>
           )}
           <SwipeCard
             key={top.id}
             expense={top}
             behind={Math.min(2, pending.length - 1)}
             dupe={duplicates.get(top.id)}
-            onKeep={() => onKeep(top)}
+            onKeep={(amount) => onKeep(top, amount)}
             onToss={() => onToss(top)}
             onUpdate={(patch) => onUpdate(top.id, patch)}
           />
@@ -110,10 +114,10 @@ function SwipeCard({
   onToss,
   onUpdate,
 }: {
-  expense: Expense;
+  expense: PendingExpense;
   behind: number;
-  dupe?: Expense;
-  onKeep: () => void;
+  dupe?: PendingExpense;
+  onKeep: (amount?: number) => void;
   onToss: () => void;
   onUpdate: (patch: Patch) => void;
 }) {
@@ -121,13 +125,25 @@ function SwipeCard({
   const [dragging, setDragging] = useState(false);
   const [gone, setGone] = useState<0 | 1 | -1>(0);
   const [editing, setEditing] = useState(false);
+  // For a charge that arrived without an amount (often PayNow): what you type in.
+  const [price, setPrice] = useState("");
+  const priceRef = useRef<HTMLInputElement>(null);
   const startX = useRef(0);
 
   function fling(dir: 1 | -1) {
     if (gone) return;
+    const n = Number(price);
+    const priced = price.trim() !== "" && Number.isFinite(n) && n > 0;
+    if (dir === 1 && e.amount === null && !priced) {
+      // Can't keep it without a price: snap back and ask.
+      setDx(0);
+      priceRef.current?.focus();
+      navigator.vibrate?.([10, 40, 10]);
+      return;
+    }
     navigator.vibrate?.(15);
     setGone(dir);
-    window.setTimeout(dir === 1 ? onKeep : onToss, 180);
+    window.setTimeout(() => (dir === 1 ? onKeep(e.amount === null ? n : undefined) : onToss()), 180);
   }
 
   const x = gone ? gone * window.innerWidth * 1.2 : dx;
@@ -202,7 +218,31 @@ function SwipeCard({
               <div className="pt-6 text-center">
                 <div className="text-5xl">{CATEGORY_EMOJI[e.category] ?? "📦"}</div>
                 <div className="mt-3 text-xl font-semibold">{e.item}</div>
-                <div className="mt-1 text-4xl font-bold tracking-tight tabular-nums">{money(e.amount)}</div>
+                {e.amount === null ? (
+                  <>
+                    <label className="mt-2 flex items-center justify-center gap-1">
+                      <span className="text-3xl font-bold text-ink-faint">$</span>
+                      <input
+                        ref={priceRef}
+                        value={price}
+                        onChange={(ev) => setPrice(ev.target.value)}
+                        onPointerDown={(ev) => ev.stopPropagation()}
+                        onKeyDown={(ev) => ev.key === "Enter" && fling(1)}
+                        autoFocus
+                        inputMode="decimal"
+                        enterKeyHint="done"
+                        placeholder="How much?"
+                        aria-label="Amount"
+                        className="w-44 rounded-2xl bg-bg px-3 py-2 text-center text-3xl font-bold tabular-nums outline-none ring-2 ring-accent/40 placeholder:text-xl placeholder:font-medium placeholder:text-ink-faint focus:ring-accent"
+                      />
+                    </label>
+                    <div className="mt-1 text-xs text-ink-soft">
+                      The alert didn't say how much. Fill it in to keep it.
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-1 text-4xl font-bold tracking-tight tabular-nums">{money(e.amount)}</div>
+                )}
                 <div className="mt-2 text-sm text-ink-soft">
                   {e.category} · {dayLabel(e.spent_at)}, {timeLabel(e.spent_at)}
                 </div>
@@ -216,7 +256,7 @@ function SwipeCard({
                   ⚠️ Likely duplicate:{" "}
                   {dupe.status === "pending" ? "another alert for " : "you already added "}
                   <b>
-                    {dupe.status === "pending" ? money(dupe.amount) : `${dupe.item} ${money(dupe.amount)}`}
+                    {dupe.status === "pending" ? money(dupe.amount ?? 0) : `${dupe.item} ${money(dupe.amount ?? 0)}`}
                   </b>{" "}
                   at {timeLabel(dupe.spent_at)}
                 </div>
@@ -269,12 +309,12 @@ function CardEditor({
   onSave,
   onCancel,
 }: {
-  expense: Expense;
+  expense: PendingExpense;
   onSave: (patch: Patch) => void;
   onCancel: () => void;
 }) {
   const [item, setItem] = useState(expense.item);
-  const [amount, setAmount] = useState(String(expense.amount));
+  const [amount, setAmount] = useState(expense.amount === null ? "" : String(expense.amount));
   const [category, setCategory] = useState(expense.category);
 
   return (
@@ -282,11 +322,8 @@ function CardEditor({
       onSubmit={(ev) => {
         ev.preventDefault();
         const n = Number(amount);
-        onSave({
-          item: item.trim() || expense.item,
-          amount: Number.isFinite(n) && n >= 0 ? n : expense.amount,
-          category,
-        });
+        const valid = amount.trim() !== "" && Number.isFinite(n) && n >= 0;
+        onSave({ item: item.trim() || expense.item, category, ...(valid ? { amount: n } : {}) });
       }}
       className="space-y-3 pt-8"
     >
