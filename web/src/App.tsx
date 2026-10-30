@@ -15,6 +15,7 @@ import { AskPrice } from "./components/AskPrice";
 import { Inbox, InboxBanner } from "./components/Inbox";
 import { Settings } from "./components/Settings";
 import { ScreenHeader } from "./components/ScreenHeader";
+import { Insights } from "./components/Insights";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -30,7 +31,7 @@ export default function App() {
 }
 
 type Toast = { text: string; undo?: () => void };
-type View = "home" | "spending" | "inbox" | "settings";
+type View = "home" | "spending" | "insights" | "inbox" | "settings";
 
 function Home() {
   const {
@@ -40,6 +41,8 @@ function Home() {
     loading,
     addText,
     addReceipt,
+    addStatement,
+    getConfirmedRange,
     addDirect,
     remove,
     restore,
@@ -54,6 +57,9 @@ function Home() {
   const [askQueue, setAskQueue] = useState<{ item: string; day: string | null }[]>([]);
   // The day new entries go on ("YYYY-MM-DD"); null = today. Stays until you clear it, for backfilling.
   const [day, setDay] = useState<string | null>(null);
+  const [historyMonth, setHistoryMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [historyExpenses, setHistoryExpenses] = useState<Expense[]>(expenses);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const toastTimer = useRef<number | undefined>(undefined);
 
   // Each screen gets a history entry, so Android's back gesture returns home instead of closing the app.
@@ -74,6 +80,15 @@ function Home() {
     setToast(t);
     toastTimer.current = window.setTimeout(() => setToast(null), 5000);
   }
+
+  useEffect(() => {
+    if (view !== "spending") return;
+    const from = `${historyMonth}-01T00:00:00.000Z`;
+    const d = new Date(`${historyMonth}-01T00:00:00.000Z`);
+    d.setUTCMonth(d.getUTCMonth() + 1);
+    setHistoryLoading(true);
+    void getConfirmedRange(from, d.toISOString()).then(setHistoryExpenses).catch(() => showToast({ text: "Couldn't load that month" })).finally(() => setHistoryLoading(false));
+  }, [view, historyMonth, getConfirmedRange]);
 
   /** Midday on the picked day as ISO, or undefined for "now". */
   const spentAt = (d: string | null) => (d ? onDay(d).toISOString() : undefined);
@@ -136,6 +151,53 @@ function Home() {
       showToast({ text: "Couldn't read the receipt. Try a clearer photo?" });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleStatement(file: File) {
+    if (file.size > 10 * 1024 * 1024) {
+      showToast({ text: "That PDF is too large (10 MB maximum)" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      const result = await addStatement(btoa(binary));
+      showToast({ text: `Statement: ${result.inserted} new rows${result.skipped ? ` · ${result.skipped} already imported` : ""} to check` });
+      if (result.inserted) open("inbox");
+    } catch (e) {
+      showToast({ text: e instanceof Error ? e.message : "Couldn't read that statement" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function csvCell(value: string | number) {
+    const s = String(value);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  async function exportCsv(allHistory: boolean) {
+    try {
+      let rows: Expense[];
+      if (allHistory) rows = await getConfirmedRange();
+      else {
+        const from = `${historyMonth}-01T00:00:00.000Z`;
+        const d = new Date(`${historyMonth}-01T00:00:00.000Z`);
+        d.setUTCMonth(d.getUTCMonth() + 1);
+        rows = await getConfirmedRange(from, d.toISOString());
+      }
+      const csv = ["Date,Description,Amount,Category,Source", ...rows.map((r) => [r.spent_at.slice(0, 10), r.item, r.amount.toFixed(2), r.category, r.source].map(csvCell).join(","))].join("\r\n");
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `lazy-ledger-${allHistory ? "all-history" : historyMonth}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      showToast({ text: "Couldn't export expenses" });
     }
   }
 
@@ -220,10 +282,16 @@ function Home() {
       <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
         {view === "spending" ? (
           <div className="flex flex-1 flex-col space-y-5 px-4 pb-24">
-            <ScreenHeader title="Spending" onBack={goHome} />
-            <Summary expenses={expenses} />
-            <RecentList expenses={expenses} onDelete={handleDelete} onUpdate={update} />
+            <ScreenHeader title="Spending" onBack={goHome} action={<button onClick={() => open("insights")} className="rounded-xl bg-bg px-3 py-2 text-sm font-medium ring-1 ring-line">Insights</button>} />
+            <div className="flex items-center gap-2">
+              <input type="month" value={historyMonth} onChange={(e) => setHistoryMonth(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-card px-3 py-2 text-sm ring-1 ring-line" />
+              <button onClick={() => void exportCsv(false)} className="rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-white">Export</button>
+              <button onClick={() => void exportCsv(true)} className="rounded-xl bg-bg px-3 py-2 text-sm font-medium ring-1 ring-line">All</button>
+            </div>
+            {historyLoading ? <div className="h-32 animate-pulse rounded-3xl bg-card" /> : <><Summary expenses={historyExpenses} /><RecentList expenses={historyExpenses} onDelete={handleDelete} onUpdate={update} /></>}
           </div>
+        ) : view === "insights" ? (
+          <div className="flex flex-1 flex-col space-y-5 px-4 pb-24"><ScreenHeader title="Insights" subtitle="Charts and AI patterns" onBack={goHome} /><Insights expenses={expenses} /></div>
         ) : view === "inbox" ? (
           <Inbox
             pending={pending}
@@ -295,6 +363,7 @@ function Home() {
             onSubmit={handleText}
             onRemembered={handleRemembered}
             onPhoto={handlePhoto}
+            onStatement={handleStatement}
             memory={memory}
             busy={busy}
             day={day}

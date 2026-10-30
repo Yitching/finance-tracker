@@ -1,0 +1,27 @@
+import { useMemo, useState } from "react";
+import { supabase } from "../lib/supabase";
+import { money, startOfDay } from "../lib/money";
+import { CATEGORY_EMOJI, type Expense } from "../lib/types";
+
+type InsightResponse = { summary: string; patterns: string[]; recurring: string[]; forecast: { period: string; amount: number; confidence: "low" | "medium" | "high" } | null; suggestions: string[]; limitations: string[] };
+
+function LocalAnalytics({ expenses }: { expenses: Expense[] }) {
+  const { days, total, average, topCategories } = useMemo(() => {
+    const today = startOfDay();
+    const days = Array.from({ length: 14 }, (_, i) => { const day = new Date(today); day.setDate(today.getDate() - (13 - i)); const next = new Date(day); next.setDate(day.getDate() + 1); return { label: day.toLocaleDateString("en-SG", { weekday: "short" }), amount: expenses.filter((e) => { const t = new Date(e.spent_at); return t >= day && t < next; }).reduce((sum, e) => sum + e.amount, 0) }; });
+    const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const activeDays = new Set(expenses.map((e) => new Date(e.spent_at).toDateString())).size;
+    const categoryTotals = new Map<string, number>(); for (const e of expenses) categoryTotals.set(e.category, (categoryTotals.get(e.category) ?? 0) + e.amount);
+    return { days, total, average: activeDays ? total / activeDays : 0, topCategories: [...categoryTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4) };
+  }, [expenses]);
+  const max = Math.max(...days.map((d) => d.amount), 1);
+  return <><section className="grid grid-cols-2 gap-3"><div className="rounded-2xl bg-card p-4 ring-1 ring-line"><div className="text-xs text-ink-faint">Tracked total</div><div className="mt-1 text-2xl font-bold tabular-nums">{money(total)}</div></div><div className="rounded-2xl bg-card p-4 ring-1 ring-line"><div className="text-xs text-ink-faint">Average active day</div><div className="mt-1 text-2xl font-bold tabular-nums">{money(average)}</div></div></section><section className="rounded-3xl bg-card p-5 ring-1 ring-line"><h2 className="font-semibold">Last 14 days</h2><div className="mt-5 flex h-36 items-end gap-1.5" aria-label="Spending over the last 14 days">{days.map((d, i) => <div key={`${d.label}-${i}`} className="flex h-full flex-1 flex-col justify-end gap-1"><div className="rounded-t bg-accent" style={{ height: `${Math.max(d.amount ? 8 : 2, (d.amount / max) * 112)}px` }} title={`${d.label}: ${money(d.amount)}`} /><span className="text-center text-[10px] text-ink-faint">{d.label.slice(0, 2)}</span></div>)}</div></section><section className="rounded-3xl bg-card p-5 ring-1 ring-line"><h2 className="font-semibold">Top categories</h2><div className="mt-4 space-y-3">{topCategories.length ? topCategories.map(([category, amount]) => <div key={category}><div className="flex justify-between text-sm"><span>{CATEGORY_EMOJI[category] ?? "📦"} {category}</span><span className="tabular-nums text-ink-soft">{money(amount)}</span></div><div className="mt-1 h-2 rounded-full bg-bg"><div className="h-full rounded-full bg-accent" style={{ width: `${(amount / topCategories[0][1]) * 100}%` }} /></div></div>) : <p className="text-sm text-ink-soft">Add a few confirmed expenses to see patterns.</p>}</div></section></>;
+}
+
+export function Insights({ expenses }: { expenses: Expense[] }) {
+  const [result, setResult] = useState<InsightResponse | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
+  async function generate() { setBusy(true); setError(null); const { data, error: invokeError } = await supabase.functions.invoke<InsightResponse>("spending-insights"); if (invokeError) setError("Could not generate insights. Please try again."); else setResult(data ?? null); setBusy(false); }
+  return <div className="space-y-5"><LocalAnalytics expenses={expenses} /><section className="rounded-3xl bg-card p-5 ring-1 ring-line"><div className="flex items-start gap-3"><div className="flex-1"><h2 className="font-semibold">AI spending coach</h2><p className="mt-1 text-sm text-ink-soft">A private, explainable summary based on confirmed expenses.</p></div><button onClick={() => void generate()} disabled={busy} className="rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Thinking…" : result ? "Refresh" : "Analyze"}</button></div>{error && <p className="mt-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">{error}</p>}{result && <div className="mt-5 space-y-4 text-sm"><p>{result.summary}</p>{result.forecast && <div className="rounded-2xl bg-bg p-3"><div className="text-xs text-ink-faint">Estimated {result.forecast.period}</div><div className="mt-1 text-xl font-bold">{money(result.forecast.amount)}</div><div className="text-xs text-ink-soft">{result.forecast.confidence} confidence</div></div>}<InsightList title="Patterns" items={result.patterns} /><InsightList title="Recurring candidates" items={result.recurring} /><InsightList title="Suggestions" items={result.suggestions} /><p className="text-xs text-ink-faint">{result.limitations.join(" ")}</p></div>}</section></div>;
+}
+
+function InsightList({ title, items }: { title: string; items: string[] }) { return items.length ? <div><h3 className="font-semibold">{title}</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-ink-soft">{items.map((item) => <li key={item}>{item}</li>)}</ul></div> : null; }

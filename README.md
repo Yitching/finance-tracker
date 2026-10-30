@@ -41,6 +41,7 @@ lazy-ledger/
 │       ├── _shared/                         # AI provider + HTTP helpers
 │       ├── parse-expense/index.ts           # free text → expenses
 │       ├── parse-receipt/index.ts           # receipt photo → Inbox
+│       ├── parse-statement/index.ts         # PDF statement → Inbox
 │       └── capture/index.ts                 # phone notification → Inbox
 └── web/                                     # Vite + React + TS + Tailwind PWA
 ```
@@ -49,7 +50,7 @@ lazy-ledger/
 
 ## Setup (about 20 minutes)
 
-You need: Node 20+, a Supabase account, an Anthropic API key (console.anthropic.com).
+You need: Node 20+, a Supabase account, and a Groq API key (console.groq.com).
 
 ### 1. Create the Supabase project
 1. supabase.com → **New project**. Pick region **Southeast Asia (Singapore)**.
@@ -66,13 +67,14 @@ npx supabase link --project-ref YOUR_PROJECT_REF
 # creates the tables, security policies and remember_item()
 npx supabase db push
 
-# your Anthropic key lives only on the server, never in the app
-npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-# optional, to try a different model:
-# npx supabase secrets set ANTHROPIC_MODEL=claude-haiku-5-5
+# AI keys live only on the server, never in the app
+npx supabase secrets set GROQ_API_KEY=gsk_...
+# optional model override for statement/text parsing:
+# npx supabase secrets set GROQ_MODEL=openai/gpt-oss-120b
 
 npx supabase functions deploy parse-expense
 npx supabase functions deploy parse-receipt
+npx supabase functions deploy parse-statement
 # the phone posts here with its own token, not a Supabase login
 npx supabase functions deploy capture --no-verify-jwt
 ```
@@ -128,10 +130,14 @@ Only a hash of the token is stored; the plain token is shown on the device that 
 | Blank screen locally | `.env.local` is missing or the values have quotes/spaces. |
 | Test notification: "Couldn't reach the capture endpoint" | Deploy it: `npx supabase functions deploy capture --no-verify-jwt`. |
 | Test works, real payments never arrive | MacroDroid needs notification access and **Unrestricted** battery use. Check its log for HTTP errors. |
+| "Sensitive notification hidden" | Android or the banking app redacted the alert before MacroDroid received it. Allow sensitive notification content/previews in Android and the bank app, then verify MacroDroid notification access. If the bank always redacts alerts, use Quick Add or enter the transaction manually; the server cannot unmask it. |
 | Receipt: "Couldn't read that receipt" | On Groq, set a vision model: `npx supabase secrets set GROQ_VISION_MODEL=...` (default `meta-llama/llama-4-scout-17b-16e-instruct`). Check `npx supabase functions logs parse-receipt`. |
+| Statement: "no selectable text" | The PDF is a scanned/image-only statement. Export a text-based PDF from your bank; scanned PDFs are rejected rather than guessed. |
+| Statement import | Set `GROQ_API_KEY`, run `npx supabase db push`, deploy `parse-statement`, and keep the PDF under 10 MB. Rows are pending for Inbox review and repeat rows are skipped by a user-scoped fingerprint. |
 | Captured charge ignored | `npx supabase functions logs capture`. The AI drops OTPs, promos, incoming money and top-ups on purpose. |
 
 ## What's next
 - **Phase 3:** UOB alert-email parser, Web Share Target for receipts
 - **Phase 4:** recurring expenses, more chip smarts
 - **Phase 5:** weekly AI recap, "safe to spend today", monthly Wrapped
+- **Phase 5:** analytics charts and an AI Insights tab are available; forecasts remain estimates based on confirmed history.

@@ -24,6 +24,7 @@ type Props = {
   /** Log a remembered item straight away, no AI. */
   onRemembered: (item: string, amount: number, category: string) => Promise<void>;
   onPhoto: (file: File) => Promise<void>;
+  onStatement: (file: File) => Promise<void>;
   memory: Remembered[];
   busy: boolean;
   /** The day new entries go on, "YYYY-MM-DD"; null means today. */
@@ -43,13 +44,14 @@ function matchMemory(text: string, memory: Remembered[]) {
   return memory.find((m) => m.item_key === q) ?? memory.find((m) => m.item_key.startsWith(q)) ?? null;
 }
 
-export function QuickAdd({ onSubmit, onRemembered, onPhoto, memory, busy, day, onDayChange }: Props) {
+export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory, busy, day, onDayChange }: Props) {
   const [text, setText] = useState("");
   const [listening, setListening] = useState(false);
   // An amount you've edited, tied to the item it was edited for.
   const [edited, setEdited] = useState<{ key: string; value: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const statementRef = useRef<HTMLInputElement>(null);
   const recRef = useRef<SpeechRec | null>(null);
 
   const match = useMemo(() => matchMemory(text, memory), [text, memory]);
@@ -161,6 +163,17 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, memory, busy, day, o
           className="min-w-0 flex-1 bg-transparent px-3 py-3 text-lg outline-none placeholder:text-ink-faint"
         />
         <input
+          ref={statementRef}
+          type="file"
+          accept="application/pdf,.pdf"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void onStatement(file);
+          }}
+        />
+        <input
           ref={fileRef}
           type="file"
           accept="image/*"
@@ -179,6 +192,15 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, memory, busy, day, o
           className="grid size-11 shrink-0 place-items-center rounded-2xl bg-bg text-xl transition active:scale-95 disabled:opacity-40"
         >
           📷
+        </button>
+        <button
+          type="button"
+          onClick={() => statementRef.current?.click()}
+          disabled={busy}
+          aria-label="Import a bank statement PDF"
+          className="grid size-11 shrink-0 place-items-center rounded-2xl bg-bg text-lg transition active:scale-95 disabled:opacity-40"
+        >
+          📄
         </button>
         {SpeechRecognition && (
           <button

@@ -129,6 +129,12 @@ async function askGroq(system: string, text: string, tool: Tool, image?: Image):
   return JSON.parse(call.function.arguments ?? "{}");
 }
 
+/** Statement parsing is intentionally Groq-only: PDFs are text input, not receipt images. */
+export async function callGroqTool<T>(system: string, text: string, tool: Tool): Promise<T | null> {
+  if (!GROQ_KEY) throw new Error("GROQ_API_KEY secret is not set");
+  return (await askGroq(system, text, tool)) as T | null;
+}
+
 /** The tool input the model answered with, or null if it didn't call the tool. */
 export async function callTool<T>(
   system: string,

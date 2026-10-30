@@ -232,6 +232,16 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
               {info.last_used_at ? `last used ${when(info.last_used_at)}` : "not used yet"}
             </div>
             <CopyField label="Token" value={shownToken} canCopy={!!token} copied={copied} onCopy={copy} />
+            <div className="rounded-2xl bg-bg p-4 text-sm text-ink-soft">
+              <h3 className="font-semibold text-ink">If a bank alert says “Sensitive notification hidden”</h3>
+              <p className="mt-1">Android or the banking app redacted the text before MacroDroid could read it. Lazy Ledger cannot recover hidden amounts.</p>
+              <ol className="mt-2 list-decimal space-y-1 pl-5">
+                <li>Allow sensitive notification content on the Android lock screen.</li>
+                <li>Allow transaction details/previews in the bank app’s notification settings.</li>
+                <li>Confirm MacroDroid has Notification Access and battery use set to Unrestricted.</li>
+                <li>If the bank always redacts alerts, use Quick Add or enter the transaction manually.</li>
+              </ol>
+            </div>
             <div className="flex gap-2 text-sm font-medium">
               <button
                 onClick={() => void createToken()}

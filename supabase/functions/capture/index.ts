@@ -158,6 +158,12 @@ Deno.serve(async (req) => {
     return json({ error: "Empty notification" }, 400);
   }
 
+  // Android or the banking app may redact notification content before MacroDroid can read it.
+  if (/sensitive notification hidden|content hidden|notification hidden|hidden notification/i.test(text)) {
+    await log("error", "Android redacted the notification. Allow sensitive notification content for the banking app and MacroDroid, then retry.");
+    return json({ status: "ignored", reason: "redacted_notification", message: "Android hid this notification before capture." });
+  }
+
   // Android sometimes posts the same notification twice (or updates it in place).
   const { data: repeat } = await admin
     .from("expenses")

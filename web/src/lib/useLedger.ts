@@ -77,6 +77,32 @@ export function useLedger() {
     [refresh],
   );
 
+  /** PDF bank statement -> historical pending rows in the Inbox. */
+  const addStatement = useCallback(
+    async (pdf: string) => {
+      const { data, error } = await supabase.functions.invoke<{
+        saved: Expense[];
+        parsed: number;
+        inserted: number;
+        skipped: number;
+      }>("parse-statement", { body: { pdf } });
+      if (error) throw error;
+      await refresh();
+      return data ?? { saved: [], parsed: 0, inserted: 0, skipped: 0 };
+    },
+    [refresh],
+  );
+
+  /** Explicit history query used by Spending and CSV export; home keeps its fast 62-day query. */
+  const getConfirmedRange = useCallback(async (from?: string, to?: string) => {
+    let query = supabase.from("expenses").select("*").eq("status", "confirmed").order("spent_at", { ascending: false });
+    if (from) query = query.gte("spent_at", from);
+    if (to) query = query.lt("spent_at", to);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []).map(toExpense);
+  }, []);
+
   /** Direct insert, no AI. Used by quick chips and "how much was X?" prompts. */
   const addDirect = useCallback(
     async (item: string, amount: number, category: string, source = "manual", spentAt?: string) => {
@@ -164,6 +190,8 @@ export function useLedger() {
     loading,
     addText,
     addReceipt,
+    addStatement,
+    getConfirmedRange,
     addDirect,
     remove,
     restore,
