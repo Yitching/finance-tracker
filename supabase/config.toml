@@ -10,6 +10,9 @@ verify_jwt = true
 [functions.parse-statement]
 verify_jwt = true
 
+[functions.spending-insights]
+verify_jwt = true
+
 # The phone has no Supabase login; capture checks its own phone token instead.
 [functions.capture]
 verify_jwt = false

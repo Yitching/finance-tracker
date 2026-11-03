@@ -35,13 +35,13 @@ Type `kopi, chicken rice 5.5, grab 12` → AI splits it, prices what it remember
 lazy-ledger/
 ├── supabase/
 │   ├── config.toml
-│   ├── migrations/20261026000000_init.sql   # tables, RLS, remember_item()
-│   ├── migrations/20261026010000_inbox.sql  # phone tokens, merchant memory
+│   ├── migrations/                          # tables, RLS, phone tokens, merchant memory, capture log…
 │   └── functions/
 │       ├── _shared/                         # AI provider + HTTP helpers
 │       ├── parse-expense/index.ts           # free text → expenses
 │       ├── parse-receipt/index.ts           # receipt photo → Inbox
 │       ├── parse-statement/index.ts         # PDF statement → Inbox
+│       ├── spending-insights/index.ts       # AI spending coach (Insights screen)
 │       └── capture/index.ts                 # phone notification → Inbox
 └── web/                                     # Vite + React + TS + Tailwind PWA
 ```
@@ -53,7 +53,7 @@ lazy-ledger/
 You need: Node 20+, a Supabase account, and a Groq API key (console.groq.com).
 
 ### 1. Create the Supabase project
-1. supabase.com → **New project**. Pick region **Southeast Asia (Singapore)**.
+1. supabase.com → **New project**. Pick the region closest to you (Southeast Asia (Singapore) for SG).
 2. Save the database password somewhere; the CLI asks for it once.
 3. Note your **project ref**: it's the `xxxx` in `https://xxxx.supabase.co`.
 
@@ -75,16 +75,18 @@ npx supabase secrets set GROQ_API_KEY=gsk_...
 npx supabase functions deploy parse-expense
 npx supabase functions deploy parse-receipt
 npx supabase functions deploy parse-statement
+npx supabase functions deploy spending-insights
 # the phone posts here with its own token, not a Supabase login
 npx supabase functions deploy capture --no-verify-jwt
 ```
 
-### 3. Configure sign-in
-Dashboard → **Authentication → URL Configuration**
-- **Site URL**: `http://localhost:5173` for now (change to your deployed URL in step 5)
-- **Redirect URLs**: add `http://localhost:5173` and, later, your deployed URL
+### 3. Create your account (email + password)
+1. Dashboard → **Authentication → Users → Add user → Create new user**.
+   Enter your email and a password, and tick **Auto Confirm User**.
+2. Dashboard → **Authentication → Sign In / Providers**: turn **off** "Allow new users to sign up",
+   so nobody else can create an account and spend your AI credits.
 
-Email magic links are on by default. You sign in once per device and stay signed in.
+No emails are sent, so there's no rate limit. You sign in once per device and stay signed in.
 
 ### 4. Run it locally
 ```bash
@@ -96,7 +98,7 @@ cp .env.example .env.local
 npm install
 npm run dev
 ```
-Open http://localhost:5173, sign in with your email, and type your first expense.
+Open http://localhost:5173, sign in with your email and password, and type your first expense.
 
 ### 5. Put it on your phone
 A PWA needs HTTPS to install, so deploy it. Vercel, Netlify and Cloudflare Pages are all free for this.
@@ -105,10 +107,15 @@ A PWA needs HTTPS to install, so deploy it. Vercel, Netlify and Cloudflare Pages
 add the two `VITE_SUPABASE_*` env vars → Deploy.
 
 Then:
-1. Add the deployed URL (e.g. `https://lazy-ledger.vercel.app`) to Supabase **Site URL** and **Redirect URLs**.
-2. On your Android phone, open the URL in **Chrome** → ⋮ menu → **Install app** (or **Add to home screen**).
-3. Sign in from the installed app. Open the magic-link email on the phone.
-4. Drag the icon to your home screen dock. Long-press it for **Quick add**.
+1. On your Android phone, open the URL in **Chrome** → ⋮ menu → **Install app** (or **Add to home screen**).
+2. Sign in from the installed app with your email and password.
+3. Drag the icon to your home screen dock. Long-press it for **Quick add**.
+
+### Deploys
+Pushing to `main` redeploys everything: Vercel rebuilds `web/`, and the **Deploy Supabase** GitHub Action
+(`.github/workflows/deploy-supabase.yml`) runs `supabase db push` and deploys every function whenever
+something under `supabase/` changes. It needs two repo secrets: `SUPABASE_ACCESS_TOKEN` (an `sbp_…` account
+token) and `SUPABASE_DB_PASSWORD`. Run it by hand from the Actions tab after changing a function secret.
 
 ### 6. Auto-capture from bank notifications (Android)
 Already on Phase 1? Pull, then run `npx supabase db push` and redeploy **both** functions
@@ -124,9 +131,9 @@ Only a hash of the token is stored; the plain token is shown on the device that 
 ## Troubleshooting
 | Symptom | Fix |
 |---|---|
-| "Couldn't reach the AI" | `npx supabase functions logs parse-expense`. Usually the `ANTHROPIC_API_KEY` secret is missing, or the model name is wrong. |
-| Magic link opens the wrong site | The URL isn't in **Redirect URLs**, or Site URL still points to localhost. |
-| Magic link email never arrives | Supabase's built-in mailer is rate-limited (a few per hour). Wait, or add custom SMTP under Auth settings. |
+| "Couldn't reach the AI" | Dashboard → **Edge Functions → parse-expense → Logs**. Usually the `GROQ_API_KEY` secret is missing, the model name is wrong, or Groq's free daily limit was hit. |
+| "Wrong email or password" | Check the user exists under **Authentication → Users** and is confirmed. You can reset the password there. |
+| Statement import or AI coach fails with 404 | The function isn't deployed. Re-run the **Deploy Supabase** action, or deploy `parse-statement` / `spending-insights` by hand. |
 | Blank screen locally | `.env.local` is missing or the values have quotes/spaces. |
 | Test notification: "Couldn't reach the capture endpoint" | Deploy it: `npx supabase functions deploy capture --no-verify-jwt`. |
 | Test works, real payments never arrive | MacroDroid needs notification access and **Unrestricted** battery use. Check its log for HTTP errors. |
