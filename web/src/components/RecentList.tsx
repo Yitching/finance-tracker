@@ -8,20 +8,22 @@ type Props = {
   expenses: Expense[];
   onDelete: (e: Expense) => void;
   onUpdate: (id: string, patch: ExpensePatch) => void;
+  /** Most rows to show; omit to show everything (the Spending screen). */
+  limit?: number;
 };
 
-export function RecentList({ expenses, onDelete, onUpdate }: Props) {
+export function RecentList({ expenses, onDelete, onUpdate, limit }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   const groups = useMemo(() => {
     const map = new Map<string, Expense[]>();
-    for (const e of expenses.slice(0, 80)) {
+    for (const e of limit ? expenses.slice(0, limit) : expenses) {
       const label = dayLabel(e.spent_at);
       if (!map.has(label)) map.set(label, []);
       map.get(label)!.push(e);
     }
     return [...map.entries()];
-  }, [expenses]);
+  }, [expenses, limit]);
 
   if (!groups.length) {
     return (

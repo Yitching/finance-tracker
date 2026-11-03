@@ -9,13 +9,15 @@ import type { Expense, PendingExpense, Remembered } from "./lib/types";
 import { Login } from "./components/Login";
 import { QuickAdd } from "./components/QuickAdd";
 import { Chips } from "./components/Chips";
-import { Summary, SummaryStrip } from "./components/Summary";
+import { PeriodSummary, SummaryStrip } from "./components/Summary";
 import { RecentList } from "./components/RecentList";
 import { AskPrice } from "./components/AskPrice";
 import { Inbox, InboxBanner } from "./components/Inbox";
 import { Settings } from "./components/Settings";
 import { ScreenHeader } from "./components/ScreenHeader";
 import { Insights } from "./components/Insights";
+import { periodContaining, periodFor, periodRange, periodTitle, shiftPeriod } from "./lib/period";
+import { useStatementDay } from "./lib/settings";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -57,8 +59,17 @@ function Home() {
   const [askQueue, setAskQueue] = useState<{ item: string; day: string | null }[]>([]);
   // The day new entries go on ("YYYY-MM-DD"); null = today. Stays until you clear it, for backfilling.
   const [day, setDay] = useState<string | null>(null);
-  const [historyMonth, setHistoryMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [historyExpenses, setHistoryExpenses] = useState<Expense[]>(expenses);
+  const [statementDay, setStatementDay] = useStatementDay();
+  // The Spending screen's period ("YYYY-MM"); null = the one you're in now.
+  const [periodKey, setPeriodKey] = useState<string | null>(null);
+  const period = useMemo(
+    () => (periodKey ? periodFor(periodKey, statementDay) : periodContaining(statementDay)),
+    [periodKey, statementDay],
+  );
+  const previous = useMemo(() => shiftPeriod(period.key, -1, statementDay), [period, statementDay]);
+  const isCurrent = period.key === periodContaining(statementDay).key;
+  // Covers this period and the one before, for the comparison.
+  const [historyExpenses, setHistoryExpenses] = useState<Expense[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const toastTimer = useRef<number | undefined>(undefined);
 
@@ -83,12 +94,23 @@ function Home() {
 
   useEffect(() => {
     if (view !== "spending") return;
-    const from = `${historyMonth}-01T00:00:00.000Z`;
-    const d = new Date(`${historyMonth}-01T00:00:00.000Z`);
-    d.setUTCMonth(d.getUTCMonth() + 1);
+    // Local-time boundaries: an expense at 2am SGT on the 1st belongs to the 1st.
     setHistoryLoading(true);
-    void getConfirmedRange(from, d.toISOString()).then(setHistoryExpenses).catch(() => showToast({ text: "Couldn't load that month" })).finally(() => setHistoryLoading(false));
-  }, [view, historyMonth, getConfirmedRange]);
+    void getConfirmedRange(previous.from.toISOString(), period.to.toISOString())
+      .then(setHistoryExpenses)
+      .catch(() => showToast({ text: "Couldn't load that period" }))
+      .finally(() => setHistoryLoading(false));
+    // `expenses` is a dependency so edits and new entries show up here too.
+  }, [view, period, previous, getConfirmedRange, expenses]);
+
+  const periodExpenses = useMemo(
+    () =>
+      historyExpenses.filter((e) => {
+        const t = new Date(e.spent_at).getTime();
+        return t >= period.from.getTime() && t < period.to.getTime();
+      }),
+    [historyExpenses, period],
+  );
 
   /** Midday on the picked day as ISO, or undefined for "now". */
   const spentAt = (d: string | null) => (d ? onDay(d).toISOString() : undefined);
@@ -183,17 +205,12 @@ function Home() {
     try {
       let rows: Expense[];
       if (allHistory) rows = await getConfirmedRange();
-      else {
-        const from = `${historyMonth}-01T00:00:00.000Z`;
-        const d = new Date(`${historyMonth}-01T00:00:00.000Z`);
-        d.setUTCMonth(d.getUTCMonth() + 1);
-        rows = await getConfirmedRange(from, d.toISOString());
-      }
+      else rows = await getConfirmedRange(period.from.toISOString(), period.to.toISOString());
       const csv = ["Date,Description,Amount,Category,Source", ...rows.map((r) => [r.spent_at.slice(0, 10), r.item, r.amount.toFixed(2), r.category, r.source].map(csvCell).join(","))].join("\r\n");
       const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `lazy-ledger-${allHistory ? "all-history" : historyMonth}.csv`;
+      a.download = `lazy-ledger-${allHistory ? "all-history" : `${period.key}${statementDay ? "-bill" : ""}`}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -283,12 +300,50 @@ function Home() {
         {view === "spending" ? (
           <div className="flex flex-1 flex-col space-y-5 px-4 pb-24">
             <ScreenHeader title="Spending" onBack={goHome} action={<button onClick={() => open("insights")} className="rounded-xl bg-bg px-3 py-2 text-sm font-medium ring-1 ring-line">Insights</button>} />
-            <div className="flex items-center gap-2">
-              <input type="month" value={historyMonth} onChange={(e) => setHistoryMonth(e.target.value)} className="min-w-0 flex-1 rounded-xl bg-card px-3 py-2 text-sm ring-1 ring-line" />
-              <button onClick={() => void exportCsv(false)} className="rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-white">Export</button>
-              <button onClick={() => void exportCsv(true)} className="rounded-xl bg-bg px-3 py-2 text-sm font-medium ring-1 ring-line">All</button>
+            <div className="flex items-center gap-2 rounded-2xl bg-card p-1.5 ring-1 ring-line">
+              <button
+                onClick={() => setPeriodKey(previous.key)}
+                aria-label="Previous period"
+                className="grid size-10 shrink-0 place-items-center rounded-xl text-2xl leading-none active:bg-bg"
+              >
+                ‹
+              </button>
+              <div className="min-w-0 flex-1 text-center">
+                <div className="font-semibold">{periodTitle(period, statementDay)}</div>
+                <div className="text-xs text-ink-soft">{periodRange(period)}</div>
+              </div>
+              <button
+                onClick={() => setPeriodKey(shiftPeriod(period.key, 1, statementDay).key)}
+                disabled={isCurrent}
+                aria-label="Next period"
+                className="grid size-10 shrink-0 place-items-center rounded-xl text-2xl leading-none active:bg-bg disabled:opacity-25"
+              >
+                ›
+              </button>
             </div>
-            {historyLoading ? <div className="h-32 animate-pulse rounded-3xl bg-card" /> : <><Summary expenses={historyExpenses} /><RecentList expenses={historyExpenses} onDelete={handleDelete} onUpdate={update} /></>}
+            <div className="flex items-center gap-2 text-sm">
+              {!isCurrent && (
+                <button onClick={() => setPeriodKey(null)} className="font-medium text-accent">
+                  Back to {statementDay ? "current bill" : "this month"}
+                </button>
+              )}
+              <span className="flex-1" />
+              <button onClick={() => void exportCsv(false)} className="rounded-xl bg-accent px-3 py-2 font-semibold text-white">Export</button>
+              <button onClick={() => void exportCsv(true)} className="rounded-xl bg-bg px-3 py-2 font-medium ring-1 ring-line">All</button>
+            </div>
+            {historyLoading && !historyExpenses.length ? (
+              <div className="h-32 animate-pulse rounded-3xl bg-card" />
+            ) : (
+              <>
+                <PeriodSummary
+                  period={period}
+                  previous={previous}
+                  previousTitle={periodTitle(previous, statementDay)}
+                  expenses={historyExpenses}
+                />
+                <RecentList expenses={periodExpenses} onDelete={handleDelete} onUpdate={update} />
+              </>
+            )}
           </div>
         ) : view === "insights" ? (
           <div className="flex flex-1 flex-col space-y-5 px-4 pb-24"><ScreenHeader title="Insights" subtitle="Charts and AI patterns" onBack={goHome} /><Insights expenses={expenses} /></div>
@@ -303,7 +358,15 @@ function Home() {
             onBack={goHome}
           />
         ) : (
-          <Settings onBack={goHome} onCaptured={() => void refresh()} />
+          <Settings
+            onBack={goHome}
+            onCaptured={() => void refresh()}
+            statementDay={statementDay}
+            onStatementDayChange={(d) => {
+              setPeriodKey(null);
+              return setStatementDay(d);
+            }}
+          />
         )}
         {toastBar && (
           <div className="fixed inset-x-0 bottom-0 z-10">
@@ -341,7 +404,7 @@ function Home() {
             <Chips memory={memory} onTap={(m) => void handleChip(m)} />
             <SummaryStrip expenses={expenses} onOpen={() => open("spending")} />
             {(recent.length > 0 || expenses.length === 0) && (
-              <RecentList expenses={recent} onDelete={handleDelete} onUpdate={update} />
+              <RecentList expenses={recent} onDelete={handleDelete} onUpdate={update} limit={80} />
             )}
           </>
         )}

@@ -11,6 +11,7 @@ import {
 } from "../lib/capture";
 import { dayLabel, money, timeLabel } from "../lib/money";
 import { applyTheme, savedTheme, type Theme } from "../lib/theme";
+import { periodContaining, periodRange, periodTitle } from "../lib/period";
 import { CATEGORY_EMOJI, type MerchantRule } from "../lib/types";
 import { ScreenHeader } from "./ScreenHeader";
 
@@ -38,7 +39,22 @@ const THEMES: { value: Theme; label: string }[] = [
 
 const when = (iso: string) => `${dayLabel(iso)}, ${timeLabel(iso)}`;
 
-export function Settings({ onBack, onCaptured }: { onBack: () => void; onCaptured: () => void }) {
+const ordinal = (n: number) => {
+  const s = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th";
+  return `${n}${s}`;
+};
+
+export function Settings({
+  onBack,
+  onCaptured,
+  statementDay,
+  onStatementDayChange,
+}: {
+  onBack: () => void;
+  onCaptured: () => void;
+  statementDay: number | null;
+  onStatementDayChange: (day: number | null) => Promise<void>;
+}) {
   const [info, setInfo] = useState<TokenInfo | null | undefined>(undefined);
   const [token, setToken] = useState<string | null>(() => savedToken());
   const [rules, setRules] = useState<MerchantRule[]>([]);
@@ -49,6 +65,17 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
   const [theme, setTheme] = useState<Theme>(() => savedTheme());
   const [log, setLog] = useState<LogEntry[]>([]);
   const [rescued, setRescued] = useState<number[]>([]);
+  const [cycleError, setCycleError] = useState<string | null>(null);
+  const current = periodContaining(statementDay);
+
+  async function changeStatementDay(value: string) {
+    setCycleError(null);
+    try {
+      await onStatementDayChange(value ? Number(value) : null);
+    } catch {
+      setCycleError("Couldn't save that. Has the latest database migration been pushed?");
+    }
+  }
 
   const load = useCallback(async () => {
     const [tok, rul, ses, lg] = await Promise.all([
@@ -204,6 +231,38 @@ export function Settings({ onBack, onCaptured }: { onBack: () => void; onCapture
             </button>
           ))}
         </div>
+      </section>
+
+      <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
+        <div>
+          <h2 className="text-lg font-semibold">💳 Spending periods</h2>
+          <p className="mt-1 text-sm text-ink-soft">
+            Group your spending by calendar month, or by your credit card's billing cycle so totals match your bill.
+          </p>
+        </div>
+        <label className="block text-sm">
+          <span className="text-ink-soft">My statement is issued on</span>
+          <select
+            value={statementDay ?? ""}
+            onChange={(e) => void changeStatementDay(e.target.value)}
+            className="mt-1 w-full rounded-xl bg-bg px-3 py-2.5 ring-1 ring-line"
+          >
+            <option value="">Calendar months (1st to month end)</option>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+              <option key={d} value={d}>
+                The {ordinal(d)} of each month{d >= 29 ? " (or month end)" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="rounded-xl bg-bg px-3 py-2 text-sm">
+          Current period: <b>{periodTitle(current, statementDay)}</b> · {periodRange(current)}
+        </p>
+        <p className="text-xs text-ink-faint">
+          Find the statement date on your card bill or in the UOB app. A cycle is named after the month its statement
+          comes out, so with the 14th, the “Nov bill” covers 15 Oct – 14 Nov.
+        </p>
+        {cycleError && <p className="text-sm text-danger">{cycleError}</p>}
       </section>
 
       <section className="space-y-4 rounded-3xl bg-card p-5 ring-1 ring-line">
