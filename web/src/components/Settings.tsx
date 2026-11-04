@@ -6,9 +6,10 @@ import {
   savedToken,
   saveToken,
   SIMULATIONS,
-  simulationText,
+  simulationRequest,
   type Simulation,
 } from "../lib/capture";
+import { gmailScript } from "../lib/gmailScript";
 import { dayLabel, money, timeLabel } from "../lib/money";
 import { applyTheme, savedTheme, type Theme } from "../lib/theme";
 import { periodContaining, periodRange, periodTitle } from "../lib/period";
@@ -145,10 +146,11 @@ export function Settings({
     setResult(null);
     try {
       const auth = token ?? (await supabase.auth.getSession()).data.session?.access_token;
+      const req = simulationRequest(sim);
       const res = await fetch(CAPTURE_URL, {
         method: "POST",
-        headers: { Authorization: `Bearer ${auth}`, "Content-Type": "text/plain" },
-        body: simulationText(sim),
+        headers: { Authorization: `Bearer ${auth}`, "Content-Type": req.contentType },
+        body: req.body,
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -319,7 +321,48 @@ export function Settings({
 
       {info && (
         <section className="space-y-4 rounded-3xl bg-card p-5 ring-1 ring-line">
-          <h2 className="text-lg font-semibold">🤖 Set up MacroDroid</h2>
+          <div>
+            <h2 className="text-lg font-semibold">✉️ Email receipts (Grab, Shopee, UOB)</h2>
+            <p className="mt-1 text-sm text-ink-soft">
+              A small script in your own Gmail checks for new receipts every 10 minutes and sends them to your Inbox.
+              Free, no app to install, and it keeps running when your phone is off.
+            </p>
+          </div>
+          {token ? (
+            <CopyField label="Your script (token included)" value={gmailScript(token)} copied={copied} onCopy={copy} preview />
+          ) : (
+            <p className="rounded-xl bg-bg px-3 py-2 text-sm">
+              This device doesn't hold your token, so it can't fill in the script. Open Settings on the device where
+              you made it, or tap <b>New token</b> above (MacroDroid would then need the new one too).
+            </p>
+          )}
+          <ol className="list-decimal space-y-2 pl-5 text-sm">
+            <li>
+              On a computer, open <b>script.google.com</b> signed in to the Gmail that gets your receipts, and click{" "}
+              <b>New project</b>.
+            </li>
+            <li>Delete the sample code, paste the script, and press <b>Save</b> (💾).</li>
+            <li>
+              In the toolbar's function menu pick <b>setup</b>, then <b>Run</b>. Google asks for permission: choose your
+              account → <b>Advanced</b> → <b>Go to … (unsafe)</b> → <b>Allow</b>. It says “unsafe” only because it's your
+              own script, not a published app.
+            </li>
+            <li>That's it. Each email it sends shows up under Recent captures below, with what the app did with it.</li>
+          </ol>
+          <div className="rounded-2xl bg-bg p-4 text-sm text-ink-soft">
+            <h3 className="font-semibold text-ink">Get UOB card alerts by email too</h3>
+            <p className="mt-1">
+              UOB TMRW → Services → Notification settings (or UOB Personal Internet Banking → Account Services → Manage
+              Notifications): set card transaction alerts to <b>email</b> with a threshold of <b>S$1</b>. Every card
+              charge then reaches your Inbox through this script, no MacroDroid needed.
+            </p>
+          </div>
+        </section>
+      )}
+
+      {info && (
+        <section className="space-y-4 rounded-3xl bg-card p-5 ring-1 ring-line">
+          <h2 className="text-lg font-semibold">🤖 Optional: MacroDroid</h2>
           <ol className="list-decimal space-y-3 pl-5 text-sm">
             <li>
               Install <b>MacroDroid</b> from the Play Store and open it.
@@ -364,7 +407,7 @@ export function Settings({
       )}
 
       <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
-        <h2 className="text-lg font-semibold">🧪 Simulate a notification</h2>
+        <h2 className="text-lg font-semibold">🧪 Simulate a capture</h2>
         <p className="text-sm text-ink-soft">
           Sends a sample alert through the same path as your phone and checks what happens.
           {!token && " This device doesn't hold the phone token, so it signs in with your login instead."}
@@ -391,7 +434,7 @@ export function Settings({
       {info && (
         <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">📜 Recent notifications</h2>
+            <h2 className="text-lg font-semibold">📜 Recent captures</h2>
             <button onClick={() => void load()} className="text-sm font-medium text-accent">
               Refresh
             </button>
@@ -485,10 +528,13 @@ function CopyField({
   canCopy = true,
   copied,
   onCopy,
+  preview = false,
 }: {
   label: string;
   value: string;
   canCopy?: boolean;
+  /** Long values (the Gmail script): show a scrollable excerpt, copy the whole thing. */
+  preview?: boolean;
   copied: string | null;
   onCopy: (label: string, value: string) => void;
 }) {
@@ -502,7 +548,13 @@ function CopyField({
           </button>
         )}
       </div>
-      <div className="mt-0.5 font-mono text-xs break-all whitespace-pre-line select-all">{value}</div>
+      {preview ? (
+        <pre className="mt-1 max-h-40 overflow-auto font-mono text-[11px] leading-snug whitespace-pre text-ink-soft">
+          {value}
+        </pre>
+      ) : (
+        <div className="mt-0.5 font-mono text-xs break-all whitespace-pre-line select-all">{value}</div>
+      )}
     </div>
   );
 }

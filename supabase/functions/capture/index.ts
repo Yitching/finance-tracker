@@ -10,7 +10,9 @@
 // send the signed-in user's session token instead.
 //
 // Body: plain text (app name, title and text on separate lines), or JSON
-// { app?, title?, text }.
+// { app?, title?, text, source?, sent_at?, external_id? }.
+// The Gmail forwarder sends source "email" with the email's time and Gmail message id,
+// so the expense is dated when the email arrived and the same email is never added twice.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { aiConfigError, callTool, CATEGORIES, type Category } from "../_shared/ai.ts";
@@ -60,7 +62,7 @@ const classifyTool = {
   },
 };
 
-const SYSTEM = `You read ONE phone notification, usually from a Singapore bank, card or payment app, and decide whether it shows money the user just spent.
+const SYSTEM = `You read ONE phone notification or email, usually from a Singapore bank, card, payment, ride-hailing or shopping app, and decide whether it shows money the user just spent.
 kind:
 - "spend": a card charge, NETS / PayNow / PayLah! / GrabPay / ShopeePay payment, bill payment, or money the user sent to someone.
   Money going OUT counts even when no amount is shown, and even when the recipient is masked. Examples that are all "spend":
@@ -72,6 +74,11 @@ kind:
 - "incoming": money received, refunds, reversals, salary, interest. Read the direction carefully: "received from X" / "X sent you" is incoming; "sent to X" / "transferred to X" / "paid X" is spend.
 - "declined": failed, declined or cancelled transactions.
 - "other": anything else, including balance updates, statements, moving money between the user's own accounts or wallets (top-ups), and non-finance apps.
+Emails:
+- A receipt or order/payment confirmation (Grab E-Receipt, GrabFood order, Shopee "order placed" / "payment confirmed", a card alert email) is "spend". Use the TOTAL actually paid, after discounts and vouchers, including delivery fees.
+- Shipping, delivery and "order is on the way" updates, rating requests, cancellations and refund emails are not new spending: "other", "declined" or "incoming".
+- Newsletters, sales and voucher emails are "promo".
+- For Grab, item is "Grab" for rides, "GrabFood" or the restaurant name for food, "GrabMart" for groceries. For Shopee, item is "Shopee" or a short product name.
 For "spend":
 - merchant: the merchant or recipient exactly as written in the notification, e.g. "GRAB*A-6XYZ" or "NTUC FP-BEDOK".
 - item: a short friendly name in Title Case, e.g. "Grab", "NTUC FairPrice", "Shopee". For a transfer to a person, use their name; if the name is masked (e.g. "SEEXXX"), use "PayNow Transfer".
@@ -111,19 +118,40 @@ async function userFromRequest(req: Request): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-async function readText(req: Request): Promise<string> {
+type Incoming = {
+  text: string;
+  source: "notification" | "email";
+  /** When it happened, if the sender knows better than "now" (an email's date). */
+  sentAt: string | null;
+  /** The sender's own id for it (Gmail message id), for exact de-duplication. */
+  externalId: string | null;
+};
+
+async function readBody(req: Request): Promise<Incoming> {
   const raw = await req.text();
   try {
     const body = JSON.parse(raw);
     if (body && typeof body === "object") {
-      return [body.app, body.title, body.text]
-        .filter((s) => typeof s === "string" && s.trim())
-        .join("\n");
+      const email = body.source === "email";
+      const sent = typeof body.sent_at === "string" ? new Date(body.sent_at) : null;
+      const now = Date.now();
+      // Only trust a date that's real, not in the future, and within the last 60 days.
+      const sentOk = sent && !isNaN(+sent) && +sent <= now + 5 * 60_000 && +sent > now - 60 * 86_400_000;
+      return {
+        text: [body.app, body.title, body.text]
+          .filter((s) => typeof s === "string" && s.trim())
+          .join("\n"),
+        source: email ? "email" : "notification",
+        sentAt: sentOk ? sent!.toISOString() : null,
+        externalId: typeof body.external_id === "string" && body.external_id.trim()
+          ? body.external_id.trim().slice(0, 200)
+          : null,
+      };
     }
   } catch {
     // Not JSON: plain text is the normal MacroDroid body.
   }
-  return raw;
+  return { text: raw, source: "notification", sentAt: null, externalId: null };
 }
 
 Deno.serve(async (req) => {
@@ -135,13 +163,16 @@ Deno.serve(async (req) => {
   const userId = await userFromRequest(req);
   if (!userId) return json({ error: "Unknown phone token. Make a new one in Settings." }, 401);
 
-  const text = (await readText(req)).replace(/\n{2,}/g, "\n").trim().slice(0, 1000);
+  const incoming = await readBody(req);
+  // Receipts are long and put the total near the bottom, so emails get more room.
+  const maxChars = incoming.source === "email" ? 6000 : 1000;
+  const text = incoming.text.replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim().slice(0, maxChars);
 
   // Every request lands in capture_log, so Settings can show why something didn't arrive.
   const log = async (outcome: "pending" | "ignored" | "error", detail: string | null, expenseId?: string) => {
     await admin.from("capture_log").insert({
       user_id: userId,
-      raw_input: text || "(empty)",
+      raw_input: (text || "(empty)").slice(0, 2000),
       outcome,
       detail,
       expense_id: expenseId ?? null,
@@ -164,14 +195,22 @@ Deno.serve(async (req) => {
     return json({ status: "ignored", reason: "redacted_notification", message: "Android hid this notification before capture." });
   }
 
-  // Android sometimes posts the same notification twice (or updates it in place).
-  const { data: repeat } = await admin
-    .from("expenses")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("raw_input", text)
-    .gte("created_at", new Date(Date.now() - 2 * 60_000).toISOString())
-    .limit(1);
+  // Android sometimes posts the same notification twice (or updates it in place);
+  // the Gmail forwarder may re-send an email. Check before spending an AI call.
+  const { data: repeat } = incoming.externalId
+    ? await admin
+      .from("expenses")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("external_id", incoming.externalId)
+      .limit(1)
+    : await admin
+      .from("expenses")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("raw_input", text)
+      .gte("created_at", new Date(Date.now() - 2 * 60_000).toISOString())
+      .limit(1);
   if (repeat?.length) {
     await log("ignored", "repeat");
     return json({ status: "ignored", reason: "repeat" });
@@ -219,13 +258,20 @@ Deno.serve(async (req) => {
       amount,
       category,
       merchant,
-      source: "notification",
+      source: incoming.source,
       status: "pending",
       raw_input: text,
+      external_id: incoming.externalId,
+      ...(incoming.sentAt ? { spent_at: incoming.sentAt } : {}),
     })
     .select()
     .single();
 
+  if (error?.code === "23505") {
+    // Two copies of the same email raced each other: the first one won.
+    await log("ignored", "repeat");
+    return json({ status: "ignored", reason: "repeat" });
+  }
   if (error) {
     console.error(error);
     await log("error", `save: ${error.message}`);

@@ -29,6 +29,8 @@ export type Simulation = {
   /** What the capture endpoint should do with it. */
   expect: "pending" | "pending-no-amount" | "ignored";
   text: (now: string) => string;
+  /** Sent the way the Gmail forwarder sends emails, instead of as a phone notification. */
+  email?: { from: string; subject: string };
 };
 
 /** Realistic notifications for Settings' test buttons. */
@@ -48,6 +50,22 @@ export const SIMULATIONS: Simulation[] = [
       `UOB Personal Internet Banking\nNotifications Alerts\nUOB - Your PayNow transfer to SEEXXX on ${now} is successful.`,
   },
   {
+    id: "grab-email",
+    label: "✉️ Grab e-receipt email · $14.30",
+    expect: "pending",
+    email: { from: "Grab <no-reply@grab.com>", subject: "Your Grab E-Receipt" },
+    text: (now) =>
+      `Hope you enjoyed your ride!\nBooking ID: A-7KX92LQ\nPicked up on ${now}\nGrabCar Standard\nFrom: Choa Chu Kang MRT\nTo: Jurong East\nFare S$16.80\nPromo -S$2.50\nTotal Paid S$14.30\nPaid by Mastercard ending 1234`,
+  },
+  {
+    id: "shopee-shipped",
+    label: "✉️ Shopee “parcel shipped” email · should be ignored",
+    expect: "ignored",
+    email: { from: "Shopee <info@mail.shopee.sg>", subject: "Your parcel is on the way" },
+    text: () =>
+      "Your order 2611049XK3 has been shipped by the seller and is on its way. Track your parcel in the Shopee app.",
+  },
+  {
     id: "paynow-in",
     label: "📥 PayNow received · should be ignored",
     expect: "ignored",
@@ -59,4 +77,20 @@ export const SIMULATIONS: Simulation[] = [
 /** The time makes each test unique, so it isn't dropped as a repeat. */
 export function simulationText(sim: Simulation) {
   return sim.text(new Date().toLocaleString("en-SG", { dateStyle: "short", timeStyle: "medium" }));
+}
+
+/** The request body and content type for a simulation, matching the real sender. */
+export function simulationRequest(sim: Simulation): { body: string; contentType: string } {
+  if (!sim.email) return { body: simulationText(sim), contentType: "text/plain" };
+  return {
+    contentType: "application/json",
+    body: JSON.stringify({
+      source: "email",
+      app: `Email · ${sim.email.from}`,
+      title: sim.email.subject,
+      text: simulationText(sim),
+      sent_at: new Date().toISOString(),
+      external_id: `test-${sim.id}-${Date.now()}`,
+    }),
+  };
 }
