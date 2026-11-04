@@ -33,6 +33,8 @@ export type Expense = {
   raw_input: string | null;
   /** Raw merchant text from a bank alert, e.g. "GRAB*A-6XYZ". Only on captured charges. */
   merchant: string | null;
+  /** Your own note on it, e.g. "paid for Mei and hubby too". */
+  note: string | null;
   created_at: string;
 };
 
@@ -43,7 +45,7 @@ export type Expense = {
 export type PendingExpense = Omit<Expense, "amount"> & { amount: number | null };
 
 /** What you can change on an expense by editing it. */
-export type ExpensePatch = Partial<Pick<Expense, "item" | "amount" | "category" | "spent_at">>;
+export type ExpensePatch = Partial<Pick<Expense, "item" | "amount" | "category" | "spent_at" | "note">>;
 
 export type MerchantRule = {
   merchant_key: string;
