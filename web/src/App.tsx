@@ -5,7 +5,7 @@ import { useLedger } from "./lib/useLedger";
 import { findDuplicates } from "./lib/duplicates";
 import { shrinkPhoto } from "./lib/image";
 import { dayLabel, money, onDay, startOfDay, startOfWeek } from "./lib/money";
-import type { Expense, PendingExpense, Remembered } from "./lib/types";
+import { CATEGORIES, type Expense, type PendingExpense, type Remembered } from "./lib/types";
 import { Login } from "./components/Login";
 import { QuickAdd } from "./components/QuickAdd";
 import { Chips } from "./components/Chips";
@@ -71,6 +71,9 @@ function Home() {
   // Covers this period and the one before, for the comparison.
   const [historyExpenses, setHistoryExpenses] = useState<Expense[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [insightExpenses, setInsightExpenses] = useState<Expense[]>([]);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [filters, setFilters] = useState({ text: "", category: "", source: "", minAmount: "", maxAmount: "", from: "", to: "" });
   const toastTimer = useRef<number | undefined>(undefined);
 
   // Each screen gets a history entry, so Android's back gesture returns home instead of closing the app.
@@ -103,6 +106,13 @@ function Home() {
     // `expenses` is a dependency so edits and new entries show up here too.
   }, [view, period, previous, getConfirmedRange, expenses]);
 
+  useEffect(() => {
+    if (view !== "insights") return;
+    setInsightsLoading(true);
+    const from = new Date(Date.now() - 370 * 86_400_000).toISOString();
+    void getConfirmedRange(from).then(setInsightExpenses).catch(() => setInsightExpenses(expenses)).finally(() => setInsightsLoading(false));
+  }, [view, getConfirmedRange, expenses]);
+
   const periodExpenses = useMemo(
     () =>
       historyExpenses.filter((e) => {
@@ -111,6 +121,14 @@ function Home() {
       }),
     [historyExpenses, period],
   );
+
+  const sources = useMemo(() => [...new Set(historyExpenses.map((e) => e.source).filter(Boolean))].sort(), [historyExpenses]);
+  const filteredHistory = useMemo(() => historyExpenses.filter((e) => {
+    const text = filters.text.trim().toLowerCase(); const date = new Date(e.spent_at); const amount = e.amount;
+    return (!text || `${e.item} ${e.merchant ?? ""}`.toLowerCase().includes(text)) && (!filters.category || e.category === filters.category) && (!filters.source || e.source === filters.source) && (!filters.minAmount || amount >= Number(filters.minAmount)) && (!filters.maxAmount || amount <= Number(filters.maxAmount)) && (!filters.from || date >= new Date(`${filters.from}T00:00:00`)) && (!filters.to || date < new Date(`${filters.to}T23:59:59.999`));
+  }), [historyExpenses, filters]);
+  const hasFilters = Object.values(filters).some(Boolean);
+  const visiblePeriodExpenses = useMemo(() => periodExpenses.filter((e) => filteredHistory.includes(e)), [periodExpenses, filteredHistory]);
 
   /** Midday on the picked day as ISO, or undefined for "now". */
   const spentAt = (d: string | null) => (d ? onDay(d).toISOString() : undefined);
@@ -331,6 +349,7 @@ function Home() {
               <button onClick={() => void exportCsv(false)} className="rounded-xl bg-accent px-3 py-2 font-semibold text-white">Export</button>
               <button onClick={() => void exportCsv(true)} className="rounded-xl bg-bg px-3 py-2 font-medium ring-1 ring-line">All</button>
             </div>
+            <section className="rounded-2xl bg-card p-3 ring-1 ring-line"><div className="flex items-center gap-2"><input value={filters.text} onChange={(e) => setFilters((f) => ({ ...f, text: e.target.value }))} placeholder="Search expenses" aria-label="Search expenses" className="min-w-0 flex-1 rounded-xl bg-bg px-3 py-2 text-sm outline-none ring-1 ring-line focus:ring-accent" />{hasFilters && <button onClick={() => setFilters({ text: "", category: "", source: "", minAmount: "", maxAmount: "", from: "", to: "" })} className="shrink-0 px-1 text-xs font-medium text-accent">Clear</button>}</div><div className="mt-2 grid grid-cols-2 gap-2"><select value={filters.category} onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))} aria-label="Filter by category" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All categories</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select><select value={filters.source} onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))} aria-label="Filter by source" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All sources</option>{sources.map((s) => <option key={s}>{s}</option>)}</select><input type="number" min="0" step="0.01" value={filters.minAmount} onChange={(e) => setFilters((f) => ({ ...f, minAmount: e.target.value }))} placeholder="Min amount" aria-label="Minimum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="number" min="0" step="0.01" value={filters.maxAmount} onChange={(e) => setFilters((f) => ({ ...f, maxAmount: e.target.value }))} placeholder="Max amount" aria-label="Maximum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} aria-label="Filter from date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} aria-label="Filter to date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /></div>{hasFilters && <p className="mt-2 text-xs text-ink-faint">Showing {filteredHistory.length} matching confirmed expenses</p>}</section>
             {historyLoading && !historyExpenses.length ? (
               <div className="h-32 animate-pulse rounded-3xl bg-card" />
             ) : (
@@ -339,14 +358,14 @@ function Home() {
                   period={period}
                   previous={previous}
                   previousTitle={periodTitle(previous, statementDay)}
-                  expenses={historyExpenses}
+                  expenses={filteredHistory}
                 />
-                <RecentList expenses={periodExpenses} onDelete={handleDelete} onUpdate={update} />
+                <RecentList expenses={visiblePeriodExpenses} onDelete={handleDelete} onUpdate={update} />
               </>
             )}
           </div>
         ) : view === "insights" ? (
-          <div className="flex flex-1 flex-col space-y-5 px-4 pb-24"><ScreenHeader title="Insights" subtitle="Charts and AI patterns" onBack={goHome} /><Insights expenses={expenses} /></div>
+          <div className="flex flex-1 flex-col space-y-5 px-4 pb-24"><ScreenHeader title="Insights" subtitle="Charts and AI patterns" onBack={goHome} /><Insights expenses={expenses} historyExpenses={insightExpenses.length ? insightExpenses : expenses} historyLoading={insightsLoading} /></div>
         ) : view === "inbox" ? (
           <Inbox
             pending={pending}
