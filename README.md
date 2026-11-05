@@ -41,7 +41,7 @@ lazy-ledger/
 │       ├── parse-expense/index.ts           # free text → expenses
 │       ├── parse-receipt/index.ts           # receipt photo → Inbox
 │       ├── parse-statement/index.ts         # PDF statement → Inbox
-│       ├── spending-insights/index.ts       # AI spending coach (Insights screen)
+│       ├── spending-insights/index.ts       # AI headline insight vs last period (Insights screen)
 │       └── capture/index.ts                 # phone notification → Inbox
 └── web/                                     # Vite + React + TS + Tailwind PWA
 ```
@@ -147,4 +147,4 @@ Only a hash of the token is stored; the plain token is shown on the device that 
 - **Phase 3:** UOB alert-email parser, Web Share Target for receipts
 - **Phase 4:** recurring expenses, more chip smarts
 - **Phase 5:** weekly AI recap, "safe to spend today", monthly Wrapped
-- **Phase 5:** analytics charts and an AI Insights tab are available; forecasts remain estimates based on confirmed history.
+- **Phase 5:** analytics charts and an AI Insights tab. The AI headline compares this period with the same point of the last one (by place, category and time of day), shows your pace, and is cached until your data or the day changes.

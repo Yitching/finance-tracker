@@ -7,3 +7,8 @@ dev-dist
 supabase/.temp
 supabase/.branches
 .DS_Store
+.github/agents/codebase-researcher.agent.md
+.github/agents/implementer.agent.md
+.github/agents/planner.agent.md
+.github/agents/researcher-and-implementer.agent.md
+.github/agents/reviewer.agent.md

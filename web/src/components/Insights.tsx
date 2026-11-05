@@ -1,10 +1,19 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { money, startOfDay } from "../lib/money";
+import { periodRange } from "../lib/period";
 import { CATEGORY_EMOJI, type Expense } from "../lib/types";
 import { findRecurring, type RecurringCandidate } from "../lib/recurring";
 
-type InsightResponse = { summary: string; patterns: string[]; recurring: string[]; forecast: { period: string; amount: number; confidence: "low" | "medium" | "high" } | null; suggestions: string[]; limitations: string[] };
+type InsightResponse = {
+  period: { key: string; from: string; to: string; daysElapsed: number; daysTotal: number; ongoing: boolean };
+  totals: { thisPeriod: number; sameTimeLastPeriod: number; lastPeriodFull: number; projectedThisPeriod: number | null };
+  headline: string;
+  detail: string;
+  highlights: { text: string; tone: "up" | "down" | "neutral" }[];
+  tip: string | null;
+  generatedAt: string | null;
+};
 
 function LocalAnalytics({ expenses }: { expenses: Expense[] }) {
   const { days, total, average, topCategories } = useMemo(() => {
@@ -19,14 +28,31 @@ function LocalAnalytics({ expenses }: { expenses: Expense[] }) {
 }
 
 export function Insights({ expenses, historyExpenses = expenses, historyLoading = false }: { expenses: Expense[]; historyExpenses?: Expense[]; historyLoading?: boolean }) {
-  const [result, setResult] = useState<InsightResponse | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const recurring = useMemo(() => findRecurring(historyExpenses), [historyExpenses]);
-  async function generate() { setBusy(true); setError(null); const { data, error: invokeError } = await supabase.functions.invoke<InsightResponse>("spending-insights"); if (invokeError) setError("Could not generate insights. Please try again."); else setResult(data ?? null); setBusy(false); }
-  return <div className="space-y-5"><LocalAnalytics expenses={expenses} /><RecurringSection candidates={recurring} loading={historyLoading} /><section className="rounded-3xl bg-card p-5 ring-1 ring-line"><div className="flex items-start gap-3"><div className="flex-1"><h2 className="font-semibold">AI spending coach</h2><p className="mt-1 text-sm text-ink-soft">A private, explainable summary based on confirmed expenses.</p></div><button onClick={() => void generate()} disabled={busy} className="rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">{busy ? "Thinking…" : result ? "Refresh" : "Analyze"}</button></div>{error && <p className="mt-4 rounded-xl bg-danger/10 p-3 text-sm text-danger">{error}</p>}{result && <div className="mt-5 space-y-4 text-sm"><p>{result.summary}</p>{result.forecast && <div className="rounded-2xl bg-bg p-3"><div className="text-xs text-ink-faint">Estimated {result.forecast.period}</div><div className="mt-1 text-xl font-bold">{money(result.forecast.amount)}</div><div className="text-xs text-ink-soft">{result.forecast.confidence} confidence</div></div>}<InsightList title="Patterns" items={result.patterns} /><InsightList title="Recurring candidates" items={result.recurring} /><InsightList title="Suggestions" items={result.suggestions} /><p className="text-xs text-ink-faint">{result.limitations.join(" ")}</p></div>}</section></div>;
+  return <div className="space-y-5"><InsightCard /><LocalAnalytics expenses={expenses} /><RecurringSection candidates={recurring} loading={historyLoading} /></div>;
+}
+
+const TONE = { up: { mark: "▲", className: "text-danger" }, down: { mark: "▼", className: "text-accent" }, neutral: { mark: "•", className: "text-ink-faint" } };
+
+/** The AI headline. Loads on open; the server caches it until your data or the day changes. */
+function InsightCard() {
+  const [result, setResult] = useState<InsightResponse | null>(null); const [busy, setBusy] = useState(true); const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async (refresh: boolean) => { setBusy(true); setError(null); const { data, error: invokeError } = await supabase.functions.invoke<InsightResponse>("spending-insights", { body: { refresh } }); if (invokeError || !data) setError("Couldn't load your insight. Please try again."); else setResult(data); setBusy(false); }, []);
+  useEffect(() => { void load(false); }, [load]);
+  const p = result?.period; const t = result?.totals;
+  return <section className="rounded-3xl bg-card p-5 ring-1 ring-line">
+    <div className="flex items-center gap-2 text-xs text-ink-faint"><span className="flex-1">{p ? `${periodRange({ key: p.key, from: new Date(p.from), to: new Date(p.to) })}${p.ongoing ? ` · day ${p.daysElapsed} of ${p.daysTotal}` : ""}` : "This period"}</span><button onClick={() => void load(true)} disabled={busy} className="font-medium text-accent disabled:opacity-50">{busy ? "Thinking…" : "Refresh"}</button></div>
+    {error && <p className="mt-3 rounded-xl bg-danger/10 p-3 text-sm text-danger">{error}</p>}
+    {!result && busy && <div className="mt-3 space-y-2"><div className="h-6 w-4/5 animate-pulse rounded bg-bg" /><div className="h-4 w-3/5 animate-pulse rounded bg-bg" /></div>}
+    {result && <div className={`mt-2 space-y-4 ${busy ? "opacity-60" : ""}`}>
+      <div><p className="text-lg font-semibold leading-snug">{result.headline}</p>{result.detail && <p className="mt-1 text-sm text-ink-soft">{result.detail}</p>}</div>
+      {t && t.thisPeriod > 0 && <div className="grid grid-cols-2 gap-3 text-sm"><div className="rounded-2xl bg-bg p-3"><div className="text-xs text-ink-faint">So far</div><div className="mt-0.5 font-bold tabular-nums">{money(t.thisPeriod)}</div><div className="text-xs text-ink-soft">{money(t.sameTimeLastPeriod)} same time last period</div></div>{t.projectedThisPeriod !== null ? <div className="rounded-2xl bg-bg p-3"><div className="text-xs text-ink-faint">On pace for</div><div className="mt-0.5 font-bold tabular-nums">{money(t.projectedThisPeriod)}</div><div className="text-xs text-ink-soft">{money(t.lastPeriodFull)} last period</div></div> : <div className="rounded-2xl bg-bg p-3"><div className="text-xs text-ink-faint">Last period</div><div className="mt-0.5 font-bold tabular-nums">{money(t.lastPeriodFull)}</div></div>}</div>}
+      {result.highlights.length > 0 && <ul className="space-y-2 text-sm">{result.highlights.map((h) => <li key={h.text} className="flex gap-2"><span className={TONE[h.tone].className}>{TONE[h.tone].mark}</span><span>{h.text}</span></li>)}</ul>}
+      {result.tip && <p className="rounded-2xl bg-accent/10 p-3 text-sm"><span className="font-semibold">Try: </span>{result.tip}</p>}
+    </div>}
+  </section>;
 }
 
 function RecurringSection({ candidates, loading }: { candidates: RecurringCandidate[]; loading: boolean }) {
   return <section className="rounded-3xl bg-card p-5 ring-1 ring-line"><h2 className="font-semibold">Likely recurring</h2><p className="mt-1 text-sm text-ink-soft">Confirmed charges with repeated timing and similar amounts. Nothing is scheduled or charged automatically.</p>{loading ? <div className="mt-4 h-16 animate-pulse rounded-2xl bg-bg" /> : candidates.length ? <ul className="mt-4 divide-y divide-line">{candidates.map((c) => <li key={`${c.name}-${c.nextDate}`} className="py-3 first:pt-0 last:pb-0"><div className="flex items-start gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{c.name}</div><div className="mt-0.5 text-sm text-ink-soft">{c.cadence} · {c.occurrences} confirmed charges</div><div className="text-xs text-ink-faint">Next expected {new Date(c.nextDate).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" })}</div></div><div className="shrink-0 text-right font-semibold tabular-nums">{money(c.typicalAmount)}<div className="text-xs font-normal text-ink-faint">typical</div></div></div></li>)}</ul> : <p className="mt-4 text-sm text-ink-soft">Not enough consistent history yet. Three or more similar confirmed charges are needed.</p>}</section>;
 }
-
-function InsightList({ title, items }: { title: string; items: string[] }) { return items.length ? <div><h3 className="font-semibold">{title}</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-ink-soft">{items.map((item) => <li key={item}>{item}</li>)}</ul></div> : null; }
