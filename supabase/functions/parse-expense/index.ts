@@ -14,6 +14,7 @@ type ParsedItem = {
   amount: number | null;
   category: Category;
   days_ago: number;
+  note?: string | null;
 };
 
 type Memory = {
@@ -49,6 +50,11 @@ const recordTool = {
               minimum: 0,
               description: "0 for today, 1 for yesterday, etc.",
             },
+            note: {
+              type: ["string", "null"],
+              description:
+                "Why or who it was for, if the user said so, in their words: \"for Mei and hubby\", \"Mei's birthday\". Not part of item. null otherwise.",
+            },
           },
           required: ["item", "amount", "category", "days_ago"],
         },
@@ -70,6 +76,7 @@ The user may write in Singlish, shorthand or mixed languages ("kopi c kosong", "
 Currency is SGD. "5.5" or "5.50" or "$5.5" all mean 5.50.
 If an item has no price but matches a known item below, use the known price.
 If an item has no price and is unknown, set amount to null. Never invent prices.
+If the user says why or who a purchase was for ("grab 45 for mei and hubby", "dinner 80 treat parents"), put that in note and keep item short ("Grab", "Dinner"). Otherwise note is null.
 Always answer by calling the record_expenses tool.
 Known items:
 ${known}`;
@@ -165,6 +172,7 @@ Deno.serve(async (req) => {
         spent_at: picked ? picked.toISOString() : new Date(now - daysAgo * DAY).toISOString(),
         source: "ai",
         raw_input: text,
+        note: typeof p.note === "string" && p.note.trim() ? p.note.trim().slice(0, 280) : null,
       })
       .select()
       .single();

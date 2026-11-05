@@ -66,7 +66,10 @@ export function RecentList({ expenses, onDelete, onUpdate, limit }: Props) {
                     className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-bg"
                   >
                     <span className="text-xl">{CATEGORY_EMOJI[e.category] ?? "📦"}</span>
-                    <span className="min-w-0 flex-1 truncate">{e.item}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{e.item}</span>
+                      {e.note && <span className="block truncate text-xs text-ink-soft">📝 {e.note}</span>}
+                    </span>
                     <span className="font-medium tabular-nums">{money(e.amount)}</span>
                   </button>
                 </li>
@@ -94,6 +97,7 @@ function EditRow({
   const [amount, setAmount] = useState(String(expense.amount));
   const [category, setCategory] = useState(expense.category);
   const [day, setDay] = useState(dateValue(new Date(expense.spent_at)));
+  const [note, setNote] = useState(expense.note ?? "");
 
   return (
     <li className="space-y-3 bg-bg/60 px-4 py-3">
@@ -110,6 +114,14 @@ function EditRow({
           className="w-24 rounded-xl bg-card px-3 py-2 text-right tabular-nums outline-none ring-1 ring-line focus:ring-accent"
         />
       </div>
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        maxLength={280}
+        placeholder="📝 Note, e.g. paid for Mei and hubby too"
+        aria-label="Note"
+        className="w-full rounded-xl bg-card px-3 py-2 text-sm outline-none ring-1 ring-line placeholder:text-ink-faint focus:ring-accent"
+      />
       <CategoryPicker value={category} onChange={setCategory} />
       <DayPicker
         value={day}
@@ -136,6 +148,7 @@ function EditRow({
               item: item.trim() || expense.item,
               amount: Number.isFinite(n) && n >= 0 ? n : expense.amount,
               category,
+              note: note.trim() || null,
               // Same time of day, new date
               ...(moved ? { spent_at: onDay(day, new Date(expense.spent_at)).toISOString() } : {}),
             });

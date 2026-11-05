@@ -4,7 +4,7 @@ import { CATEGORY_EMOJI, type Expense, type PendingExpense } from "../lib/types"
 import { CategoryPicker } from "./CategoryPicker";
 import { ScreenHeader } from "./ScreenHeader";
 
-type Patch = Partial<Pick<Expense, "item" | "amount" | "category">>;
+type Patch = Partial<Pick<Expense, "item" | "amount" | "category" | "note">>;
 
 const sum = (rows: PendingExpense[]) => rows.reduce((s, e) => s + (e.amount ?? 0), 0);
 
@@ -246,6 +246,7 @@ function SwipeCard({
                 <div className="mt-2 text-sm text-ink-soft">
                   {e.category} · {dayLabel(e.spent_at)}, {timeLabel(e.spent_at)}
                 </div>
+                {e.note && <div className="mt-2 text-sm">📝 {e.note}</div>}
                 {e.merchant && e.merchant !== e.item && (
                   <div className="mt-1 font-mono text-xs text-ink-faint">{e.merchant}</div>
                 )}
@@ -316,6 +317,7 @@ function CardEditor({
   const [item, setItem] = useState(expense.item);
   const [amount, setAmount] = useState(expense.amount === null ? "" : String(expense.amount));
   const [category, setCategory] = useState(expense.category);
+  const [note, setNote] = useState(expense.note ?? "");
 
   return (
     <form
@@ -323,7 +325,12 @@ function CardEditor({
         ev.preventDefault();
         const n = Number(amount);
         const valid = amount.trim() !== "" && Number.isFinite(n) && n >= 0;
-        onSave({ item: item.trim() || expense.item, category, ...(valid ? { amount: n } : {}) });
+        onSave({
+          item: item.trim() || expense.item,
+          category,
+          note: note.trim() || null,
+          ...(valid ? { amount: n } : {}),
+        });
       }}
       className="space-y-3 pt-8"
     >
@@ -342,6 +349,14 @@ function CardEditor({
           className="w-24 rounded-xl bg-bg px-3 py-2 text-right tabular-nums outline-none ring-1 ring-line focus:ring-accent"
         />
       </div>
+      <input
+        value={note}
+        onChange={(ev) => setNote(ev.target.value)}
+        maxLength={280}
+        placeholder="📝 Note, e.g. paid for Mei and hubby too"
+        aria-label="Note"
+        className="w-full rounded-xl bg-bg px-3 py-2 text-sm outline-none ring-1 ring-line placeholder:text-ink-faint focus:ring-accent"
+      />
       <CategoryPicker value={category} onChange={setCategory} bleed="-mx-5 px-5" />
       {expense.merchant && (
         <p className="text-xs text-ink-soft">

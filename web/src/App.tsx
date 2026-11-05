@@ -224,7 +224,7 @@ function Home() {
       let rows: Expense[];
       if (allHistory) rows = await getConfirmedRange();
       else rows = await getConfirmedRange(period.from.toISOString(), period.to.toISOString());
-      const csv = ["Date,Description,Amount,Category,Source", ...rows.map((r) => [r.spent_at.slice(0, 10), r.item, r.amount.toFixed(2), r.category, r.source].map(csvCell).join(","))].join("\r\n");
+      const csv = ["Date,Description,Amount,Category,Source,Note", ...rows.map((r) => [r.spent_at.slice(0, 10), r.item, r.amount.toFixed(2), r.category, r.source, r.note ?? ""].map(csvCell).join(","))].join("\r\n");
       const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
       const a = document.createElement("a");
       a.href = url;
