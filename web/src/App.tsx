@@ -16,6 +16,8 @@ import { Inbox, InboxBanner } from "./components/Inbox";
 import { Settings } from "./components/Settings";
 import { ScreenHeader } from "./components/ScreenHeader";
 import { Insights } from "./components/Insights";
+import { AnswerCard } from "./components/AnswerCard";
+import { looksLikeQuestion, type Answer } from "./lib/question";
 import { periodContaining, periodFor, periodRange, periodTitle, shiftPeriod } from "./lib/period";
 import { useStatementDay } from "./lib/settings";
 
@@ -42,6 +44,7 @@ function Home() {
     memory,
     loading,
     addText,
+    ask,
     addReceipt,
     addStatement,
     getConfirmedRange,
@@ -57,6 +60,8 @@ function Home() {
   const [toast, setToast] = useState<Toast | null>(null);
   // Each "how much was X?" remembers which day X was logged for.
   const [askQueue, setAskQueue] = useState<{ item: string; day: string | null }[]>([]);
+  // The answer to the last question typed into the text box ("how much on grab?").
+  const [answer, setAnswer] = useState<{ question: string; answer: Answer } | null>(null);
   // The day new entries go on ("YYYY-MM-DD"); null = today. Stays until you clear it, for backfilling.
   const [day, setDay] = useState<string | null>(null);
   const [statementDay, setStatementDay] = useStatementDay();
@@ -143,6 +148,23 @@ function Home() {
   }
 
   async function handleText(text: string) {
+    if (looksLikeQuestion(text)) return handleQuestion(text);
+    return handleExpenseText(text);
+  }
+
+  async function handleQuestion(text: string) {
+    setBusy(true);
+    try {
+      setAnswer({ question: text, answer: await ask(text) });
+    } catch {
+      showToast({ text: "Couldn't answer that. Check your connection?" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleExpenseText(text: string) {
+    setAnswer(null);
     setBusy(true);
     try {
       const { saved, missingPrice } = await addText(text, spentAt(day));
@@ -433,6 +455,14 @@ function Home() {
       <div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-bg via-bg to-transparent pt-8">
         <div className="mx-auto max-w-lg space-y-2 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
           {toastBar}
+          {answer && (
+            <AnswerCard
+              question={answer.question}
+              answer={answer.answer}
+              onClose={() => setAnswer(null)}
+              onLogInstead={() => void handleExpenseText(answer.question)}
+            />
+          )}
           {askQueue[0] && (
             <AskPrice
               key={askQueue[0].item + askQueue.length}

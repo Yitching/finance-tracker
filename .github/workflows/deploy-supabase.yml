@@ -25,4 +25,5 @@ jobs:
       - run: supabase functions deploy parse-receipt
       - run: supabase functions deploy parse-statement
       - run: supabase functions deploy spending-insights
+      - run: supabase functions deploy ask-ledger
       - run: supabase functions deploy capture --no-verify-jwt

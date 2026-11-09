@@ -3,57 +3,17 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { aiConfigError, callTool } from "../_shared/ai.ts";
 import { cors, json } from "../_shared/http.ts";
+import { currentAndPrevious, DAY, type Period, placeOf, SGT, sgt } from "../_shared/period.ts";
 
 type Row = { item: string; amount: number; category: string; spent_at: string; merchant: string | null; source: string };
 type Highlight = { text: string; tone: "up" | "down" | "neutral" };
 type Written = { headline: string; detail: string; highlights: Highlight[]; tip: string | null };
 
-const DAY = 86_400_000;
-// Singapore has no daylight saving, so a fixed offset gives local wall-clock time.
-const SGT = 8 * 3_600_000;
 const round = (n: number) => Math.round(n * 100) / 100;
-
-// ── Periods (same rules as web/src/lib/period.ts, in Singapore time) ──────────────
-
-type Period = { key: string; from: number; to: number };
-
-const sgt = (t: number) => {
-  const d = new Date(t + SGT);
-  return { year: d.getUTCFullYear(), month0: d.getUTCMonth(), day: d.getUTCDate(), hour: d.getUTCHours(), weekday: d.getUTCDay() };
-};
-const midnight = (year: number, month0: number, day: number) => Date.UTC(year, month0, day) - SGT;
-const daysIn = (year: number, month0: number) => new Date(Date.UTC(year, month0 + 1, 0)).getUTCDate();
-const keyOf = (year: number, month0: number) => {
-  const d = new Date(Date.UTC(year, month0, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-};
-
-function afterStatement(year: number, month0: number, statementDay: number) {
-  const d = new Date(Date.UTC(year, month0, 1));
-  const y = d.getUTCFullYear(), m = d.getUTCMonth();
-  return midnight(y, m, Math.min(statementDay, daysIn(y, m)) + 1);
-}
-
-function periodFor(year: number, month0: number, statementDay: number | null): Period {
-  const key = keyOf(year, month0);
-  if (!statementDay) return { key, from: midnight(year, month0, 1), to: midnight(year, month0 + 1, 1) };
-  return { key, from: afterStatement(year, month0 - 1, statementDay), to: afterStatement(year, month0, statementDay) };
-}
-
-export function currentAndPrevious(statementDay: number | null, now: number) {
-  const { year, month0 } = sgt(now);
-  let offset = 0;
-  const here = periodFor(year, month0, statementDay);
-  if (now < here.from) offset = -1;
-  else if (now >= here.to) offset = 1;
-  return { current: periodFor(year, month0 + offset, statementDay), previous: periodFor(year, month0 + offset - 1, statementDay) };
-}
 
 // ── Facts ──────────────────────────────────────────────────────────────────────
 
 const sum = (rows: Row[]) => round(rows.reduce((s, r) => s + r.amount, 0));
-// "GRAB*A-6XYZ" and "Grab" should count as the same place.
-const placeOf = (r: Row) => (r.merchant?.split("*")[0] || r.item).toLowerCase().replace(/[^a-z]+/g, " ").trim();
 const timeOfDay = (hour: number) =>
   hour < 5 || hour >= 22 ? "late night (10pm–5am)" : hour < 11 ? "morning (5–11am)" : hour < 15 ? "midday (11am–3pm)" : hour < 18 ? "afternoon (3–6pm)" : "evening (6–10pm)";
 

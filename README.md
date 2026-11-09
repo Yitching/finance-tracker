@@ -42,6 +42,7 @@ lazy-ledger/
 │       ├── parse-receipt/index.ts           # receipt photo → Inbox
 │       ├── parse-statement/index.ts         # PDF statement → Inbox
 │       ├── spending-insights/index.ts       # AI headline insight vs last period (Insights screen)
+│       ├── ask-ledger/index.ts              # answers questions typed into the text box
 │       └── capture/index.ts                 # phone notification → Inbox
 └── web/                                     # Vite + React + TS + Tailwind PWA
 ```
@@ -76,6 +77,7 @@ npx supabase functions deploy parse-expense
 npx supabase functions deploy parse-receipt
 npx supabase functions deploy parse-statement
 npx supabase functions deploy spending-insights
+npx supabase functions deploy ask-ledger
 # the phone posts here with its own token, not a Supabase login
 npx supabase functions deploy capture --no-verify-jwt
 ```

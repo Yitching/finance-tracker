@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
+import type { Answer } from "./question";
 import type { Expense, ExpensePatch, PendingExpense, Remembered } from "./types";
 
 const HISTORY_DAYS = 62;
@@ -61,6 +62,13 @@ export function useLedger() {
     },
     [refresh],
   );
+
+  /** A question about your spending → an answer worked out from confirmed expenses. Saves nothing. */
+  const ask = useCallback(async (text: string) => {
+    const { data, error } = await supabase.functions.invoke<Answer>("ask-ledger", { body: { text } });
+    if (error || !data) throw error ?? new Error("No answer");
+    return data;
+  }, []);
 
   /** Receipt photo (base64 JPEG) → AI → pending rows in the Inbox. */
   const addReceipt = useCallback(
@@ -190,6 +198,7 @@ export function useLedger() {
     memory,
     loading,
     addText,
+    ask,
     addReceipt,
     addStatement,
     getConfirmedRange,

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { dateValue, dayLabel, onDay } from "../lib/money";
+import { looksLikeQuestion } from "../lib/question";
 import { CATEGORY_EMOJI, type Remembered } from "../lib/types";
 import { DayPicker } from "./DayPicker";
 
@@ -35,11 +36,11 @@ type Props = {
 /**
  * The one remembered item this text means, if it's a single item with no price:
  * "kopi" → Kopi, "chick" → Chicken Rice. Anything with a number, a comma or
- * "and" goes to the AI instead.
+ * "and" goes to the AI instead, and so does a question ("what kopi…").
  */
 function matchMemory(text: string, memory: Remembered[]) {
   const q = text.trim().toLowerCase();
-  if (q.length < 2 || /[\d,]|\band\b/.test(q)) return null;
+  if (q.length < 2 || /[\d,]|\band\b/.test(q) || looksLikeQuestion(q)) return null;
   // memory is sorted by use_count, so a prefix match picks the one you buy most
   return memory.find((m) => m.item_key === q) ?? memory.find((m) => m.item_key.startsWith(q)) ?? null;
 }
