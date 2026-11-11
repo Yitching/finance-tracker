@@ -13,6 +13,7 @@ import { gmailScript } from "../lib/gmailScript";
 import { dayLabel, money, timeLabel } from "../lib/money";
 import { applyTheme, savedTheme, type Theme } from "../lib/theme";
 import { periodContaining, periodRange, periodTitle } from "../lib/period";
+import { DEFAULT_BUDGET } from "../lib/settings";
 import { CATEGORY_EMOJI, type MerchantRule } from "../lib/types";
 import { ScreenHeader } from "./ScreenHeader";
 
@@ -49,11 +50,15 @@ export function Settings({
   onBack,
   onCaptured,
   statementDay,
+  monthlyBudget,
+  onMonthlyBudgetChange,
   onStatementDayChange,
 }: {
   onBack: () => void;
   onCaptured: () => void;
   statementDay: number | null;
+  monthlyBudget: number | null;
+  onMonthlyBudgetChange: (budget: number | null) => Promise<void>;
   onStatementDayChange: (day: number | null) => Promise<void>;
 }) {
   const [info, setInfo] = useState<TokenInfo | null | undefined>(undefined);
@@ -67,7 +72,23 @@ export function Settings({
   const [log, setLog] = useState<LogEntry[]>([]);
   const [rescued, setRescued] = useState<number[]>([]);
   const [cycleError, setCycleError] = useState<string | null>(null);
+  const [budgetText, setBudgetText] = useState(() => String(monthlyBudget ?? DEFAULT_BUDGET));
+  const [budgetError, setBudgetError] = useState<string | null>(null);
   const current = periodContaining(statementDay);
+
+  async function changeMonthlyBudget() {
+    setBudgetError(null);
+    const next = Number(budgetText);
+    if (!Number.isFinite(next) || next <= 0) {
+      setBudgetError("Enter a budget over $0.");
+      return;
+    }
+    try {
+      await onMonthlyBudgetChange(Math.round(next * 100) / 100);
+    } catch {
+      setBudgetError("Couldn't save that. Has the latest database migration been pushed?");
+    }
+  }
 
   async function changeStatementDay(value: string) {
     setCycleError(null);
@@ -265,6 +286,42 @@ export function Settings({
           comes out, so with the 14th, the “Nov bill” covers 15 Oct – 14 Nov.
         </p>
         {cycleError && <p className="text-sm text-danger">{cycleError}</p>}
+      </section>
+
+      <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
+        <div>
+          <h2 className="text-lg font-semibold">💰 Monthly budget</h2>
+          <p className="mt-1 text-sm text-ink-soft">
+            One cap for everything in the current period — all categories, in SGD. The budget ring on Home and
+            Spending shows spent vs this cap, what's left or over, and the daily pace.
+          </p>
+        </div>
+        <label className="block text-sm">
+          <span className="text-ink-soft">My monthly budget (SGD)</span>
+          <div className="mt-1 flex gap-2">
+            <input
+              type="number"
+              min="1"
+              step="1"
+              inputMode="decimal"
+              value={budgetText}
+              onChange={(e) => setBudgetText(e.target.value)}
+              className="min-w-0 flex-1 rounded-xl bg-bg px-3 py-2.5 ring-1 ring-line"
+              aria-label="Monthly budget in SGD"
+            />
+            <button
+              onClick={() => void changeMonthlyBudget()}
+              className="shrink-0 rounded-xl bg-accent px-4 py-2.5 font-semibold text-white active:scale-[0.98]"
+            >
+              Save
+            </button>
+          </div>
+        </label>
+        <p className="rounded-xl bg-bg px-3 py-2 text-sm">
+          Current period: <b>{periodTitle(current, statementDay)}</b> · {periodRange(current)} ·{" "}
+          {money(monthlyBudget ?? DEFAULT_BUDGET)} for the whole period
+        </p>
+        {budgetError && <p className="text-sm text-danger">{budgetError}</p>}
       </section>
 
       <section className="space-y-4 rounded-3xl bg-card p-5 ring-1 ring-line">
