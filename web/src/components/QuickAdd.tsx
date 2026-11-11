@@ -109,7 +109,7 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
         e.preventDefault();
         void submit();
       }}
-      className={`rounded-3xl bg-card p-2 shadow-lg ${day ? "ring-2 ring-accent" : "ring-1 ring-line"}`}
+      className={`rounded-3xl bg-card p-2 shadow-xl shadow-orange-200/50 ring-1 ring-line focus-within:ring-2 focus-within:ring-pop-1 dark:shadow-none ${day ? "ring-2 ring-accent" : ""}`}
     >
       {/* Backfilling a missed day: everything you log goes on the picked day until you clear it. */}
       <div className="flex items-center gap-1 px-1 pb-1">
@@ -189,7 +189,7 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
           onClick={() => fileRef.current?.click()}
           disabled={busy}
           aria-label="Scan a receipt"
-          className="grid size-11 shrink-0 place-items-center rounded-2xl bg-bg text-xl transition active:scale-95 disabled:opacity-40"
+          className="grid size-11 shrink-0 place-items-center rounded-2xl bg-amber-100 text-xl transition active:scale-95 disabled:opacity-40 dark:bg-amber-900/50"
         >
           📷
         </button>
@@ -198,7 +198,7 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
           onClick={() => statementRef.current?.click()}
           disabled={busy}
           aria-label="Import a bank statement PDF"
-          className="grid size-11 shrink-0 place-items-center rounded-2xl bg-bg text-lg transition active:scale-95 disabled:opacity-40"
+          className="grid size-11 shrink-0 place-items-center rounded-2xl bg-sky-100 text-lg transition active:scale-95 disabled:opacity-40 dark:bg-sky-900/50"
         >
           📄
         </button>
@@ -208,7 +208,7 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
             onClick={toggleMic}
             aria-label={listening ? "Stop listening" : "Say it instead"}
             className={`grid size-11 shrink-0 place-items-center rounded-2xl text-xl transition ${
-              listening ? "animate-pulse bg-danger text-white" : "bg-bg"
+              listening ? "animate-pulse bg-danger text-white" : "bg-pink-100 dark:bg-pink-900/50"
             }`}
           >
             🎙️
@@ -218,7 +218,7 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
           type="submit"
           disabled={busy || !text.trim()}
           aria-label="Add"
-          className="grid size-12 shrink-0 place-items-center rounded-2xl bg-accent text-xl font-bold text-white transition active:scale-95 disabled:opacity-40"
+          className="bg-pop-gradient grid size-12 shrink-0 place-items-center rounded-2xl text-xl font-bold text-white shadow-md shadow-pink-200/70 transition active:scale-95 disabled:opacity-40 dark:shadow-none"
         >
           {busy ? <span className="size-5 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : "↑"}
         </button>

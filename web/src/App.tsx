@@ -305,6 +305,14 @@ function Home() {
     return days.size;
   }, [expenses]);
 
+  const greeting = useMemo(() => {
+    const now = new Date();
+    const h = now.getHours();
+    const greet = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+    const date = now.toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "short" });
+    return `${greet} 👋 · ${date}`;
+  }, []);
+
   const toastBar = toast && (
     <div className="flex items-center gap-3 rounded-2xl bg-ink px-4 py-3 text-sm text-bg shadow-lg">
       <span className="min-w-0 flex-1 truncate">{toast.text}</span>
@@ -333,8 +341,8 @@ function Home() {
       <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
         {view === "spending" ? (
           <div className="flex flex-1 flex-col space-y-5 px-4 pb-24">
-            <ScreenHeader title="Spending" onBack={goHome} action={<button onClick={() => open("insights")} className="rounded-xl bg-bg px-3 py-2 text-sm font-medium ring-1 ring-line">Insights</button>} />
-            <div className="flex items-center gap-2 rounded-2xl bg-card p-1.5 ring-1 ring-line">
+            <ScreenHeader title="Spending" onBack={goHome} action={<button onClick={() => open("insights")} className="rounded-full bg-ink px-3.5 py-2 text-sm font-bold text-bg shadow-sm transition active:scale-95">✨ Insights</button>} />
+            <div className="flex items-center gap-2 rounded-3xl bg-card p-1.5 shadow-sm ring-1 ring-line">
               <button
                 onClick={() => setPeriodKey(previous.key)}
                 aria-label="Previous period"
@@ -362,10 +370,10 @@ function Home() {
                 </button>
               )}
               <span className="flex-1" />
-              <button onClick={() => void exportCsv(false)} className="rounded-xl bg-accent px-3 py-2 font-semibold text-white">Export</button>
-              <button onClick={() => void exportCsv(true)} className="rounded-xl bg-bg px-3 py-2 font-medium ring-1 ring-line">All</button>
+              <button onClick={() => void exportCsv(false)} className="bg-pop-gradient rounded-full px-4 py-2 text-sm font-bold text-white shadow-md shadow-pink-200/70 transition active:scale-95 dark:shadow-none">Export</button>
+              <button onClick={() => void exportCsv(true)} className="rounded-full bg-card px-4 py-2 text-sm font-bold ring-1 ring-line transition active:scale-95">All</button>
             </div>
-            <section className="rounded-2xl bg-card p-3 ring-1 ring-line"><div className="flex items-center gap-2"><input value={filters.text} onChange={(e) => setFilters((f) => ({ ...f, text: e.target.value }))} placeholder="Search expenses" aria-label="Search expenses" className="min-w-0 flex-1 rounded-xl bg-bg px-3 py-2 text-sm outline-none ring-1 ring-line focus:ring-accent" />{hasFilters && <button onClick={() => setFilters({ text: "", category: "", source: "", minAmount: "", maxAmount: "", from: "", to: "" })} className="shrink-0 px-1 text-xs font-medium text-accent">Clear</button>}</div><div className="mt-2 grid grid-cols-2 gap-2"><select value={filters.category} onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))} aria-label="Filter by category" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All categories</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select><select value={filters.source} onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))} aria-label="Filter by source" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All sources</option>{sources.map((s) => <option key={s}>{s}</option>)}</select><input type="number" min="0" step="0.01" value={filters.minAmount} onChange={(e) => setFilters((f) => ({ ...f, minAmount: e.target.value }))} placeholder="Min amount" aria-label="Minimum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="number" min="0" step="0.01" value={filters.maxAmount} onChange={(e) => setFilters((f) => ({ ...f, maxAmount: e.target.value }))} placeholder="Max amount" aria-label="Maximum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} aria-label="Filter from date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} aria-label="Filter to date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /></div>{hasFilters && <p className="mt-2 text-xs text-ink-faint">Showing {filteredHistory.length} matching confirmed expenses</p>}</section>
+            <section className="rounded-3xl bg-card p-3 shadow-sm ring-1 ring-line"><div className="flex items-center gap-2"><input value={filters.text} onChange={(e) => setFilters((f) => ({ ...f, text: e.target.value }))} placeholder="Search expenses" aria-label="Search expenses" className="min-w-0 flex-1 rounded-xl bg-bg px-3 py-2 text-sm outline-none ring-1 ring-line focus:ring-accent" />{hasFilters && <button onClick={() => setFilters({ text: "", category: "", source: "", minAmount: "", maxAmount: "", from: "", to: "" })} className="shrink-0 px-1 text-xs font-medium text-accent">Clear</button>}</div><div className="mt-2 grid grid-cols-2 gap-2"><select value={filters.category} onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))} aria-label="Filter by category" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All categories</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select><select value={filters.source} onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))} aria-label="Filter by source" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All sources</option>{sources.map((s) => <option key={s}>{s}</option>)}</select><input type="number" min="0" step="0.01" value={filters.minAmount} onChange={(e) => setFilters((f) => ({ ...f, minAmount: e.target.value }))} placeholder="Min amount" aria-label="Minimum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="number" min="0" step="0.01" value={filters.maxAmount} onChange={(e) => setFilters((f) => ({ ...f, maxAmount: e.target.value }))} placeholder="Max amount" aria-label="Maximum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} aria-label="Filter from date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} aria-label="Filter to date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /></div>{hasFilters && <p className="mt-2 text-xs text-ink-faint">Showing {filteredHistory.length} matching confirmed expenses</p>}</section>
             {historyLoading && !historyExpenses.length ? (
               <div className="h-32 animate-pulse rounded-3xl bg-card" />
             ) : (
@@ -424,18 +432,23 @@ function Home() {
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
       <header className="flex items-center justify-between px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Lazy Ledger</h1>
-          <p className="text-sm text-ink-soft">
-            {daysLogged > 0 ? `🔥 Logged ${daysLogged} of 7 days this week` : "New week, fresh start ✨"}
-          </p>
+          <h1 className="text-2xl font-extrabold tracking-tight">
+            Lazy Ledger <span className="animate-float inline-block">🪙</span>
+          </h1>
+          <p className="text-sm text-ink-soft">{greeting}</p>
         </div>
-        <button
-          onClick={() => open("settings")}
-          aria-label="Settings"
-          className="-mr-2 grid size-10 place-items-center rounded-full text-xl active:bg-card"
-        >
-          ⚙️
-        </button>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-bg">
+            {daysLogged > 0 ? `🔥 ${daysLogged}/7 days` : "✨ Fresh week"}
+          </span>
+          <button
+            onClick={() => open("settings")}
+            aria-label="Settings"
+            className="-mr-2 grid size-10 place-items-center rounded-full bg-card text-xl shadow-sm ring-1 ring-line transition active:scale-95"
+          >
+            ⚙️
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 space-y-5 px-4 pb-48">
@@ -451,8 +464,12 @@ function Home() {
               statementDay={statementDay}
               budget={budget}
             />
-            <Chips memory={memory} onTap={(m) => void handleChip(m)} />
-            <SummaryStrip expenses={expenses} onOpen={() => open("spending")} />
+            <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
+              <Chips memory={memory} onTap={(m) => void handleChip(m)} />
+            </div>
+            <div className="animate-fade-up" style={{ animationDelay: "140ms" }}>
+              <SummaryStrip expenses={expenses} onOpen={() => open("spending")} />
+            </div>
             {(recent.length > 0 || expenses.length === 0) && (
               <RecentList expenses={recent} onDelete={handleDelete} onUpdate={update} limit={80} />
             )}

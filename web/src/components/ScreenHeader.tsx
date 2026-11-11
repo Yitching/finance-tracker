@@ -17,7 +17,7 @@ export function ScreenHeader({
       <button
         onClick={onBack}
         aria-label="Back"
-        className="-ml-2 grid size-10 shrink-0 place-items-center rounded-full text-3xl leading-none active:bg-card"
+        className="-ml-2 grid size-10 shrink-0 place-items-center rounded-full bg-card text-3xl leading-none shadow-sm ring-1 ring-line transition active:scale-95"
       >
         ‹
       </button>

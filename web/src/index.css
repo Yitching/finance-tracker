@@ -1,17 +1,60 @@
 @import "tailwindcss";
 
-/* Design tokens: warm paper in light mode, soft charcoal in dark mode. */
+/* Design tokens: Playful Pop — warm peach, chunky cards, coral-pink pops. */
 @theme {
-  --color-bg: #f6f3ee;
-  --color-card: #ffffff;
-  --color-ink: #1f1d1a;
-  --color-ink-soft: #6b665e;
-  --color-ink-faint: #a29c92;
-  --color-line: #ebe6de;
+  --color-bg: #fff3e6;
+  --color-card: #fffdf9;
+  --color-ink: #231a12;
+  --color-ink-soft: #7a6a5c;
+  --color-ink-faint: #b0a294;
+  --color-line: #f3e2cf;
   --color-accent: #0f8a6a;
   --color-accent-soft: #6fe0bf;
   --color-good: #0f8a6a;
   --color-danger: #d1495b;
+  --color-pop-1: #ff8a5c;
+  --color-pop-2: #ff5c8a;
+  --color-pop-3: #ffd166;
+  --color-lime: #d9f99d;
+
+  --animate-fade-up: fade-up 0.5s ease both;
+  --animate-pop: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+  --animate-float: float 3s ease-in-out infinite;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.92);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+}
+
+/* Playful Pop gradient: coral → pink, used for the budget hero and big buttons. */
+.bg-pop-gradient {
+  background: linear-gradient(135deg, var(--color-pop-1), var(--color-pop-2));
 }
 
 /* Dark follows the phone unless Settings picks one: <html data-theme="light|dark">. */
@@ -22,12 +65,12 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --color-bg: #141412;
-    --color-card: #1e1d1b;
-    --color-ink: #f2efe9;
-    --color-ink-soft: #b3ada3;
-    --color-ink-faint: #7d776e;
-    --color-line: #2c2a27;
+    --color-bg: #1a1512;
+    --color-card: #241d18;
+    --color-ink: #f7f0e8;
+    --color-ink-soft: #b8a894;
+    --color-ink-faint: #7d7264;
+    --color-line: #33291f;
     --color-accent: #2bb38d;
     --color-accent-soft: #0f8a6a;
     --color-good: #45c9a3;
@@ -37,12 +80,12 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-bg: #141412;
-  --color-card: #1e1d1b;
-  --color-ink: #f2efe9;
-  --color-ink-soft: #b3ada3;
-  --color-ink-faint: #7d776e;
-  --color-line: #2c2a27;
+  --color-bg: #1a1512;
+  --color-card: #241d18;
+  --color-ink: #f7f0e8;
+  --color-ink-soft: #b8a894;
+  --color-ink-faint: #7d7264;
+  --color-line: #33291f;
   --color-accent: #2bb38d;
   --color-accent-soft: #0f8a6a;
   --color-good: #45c9a3;
@@ -51,11 +94,21 @@
 
 html,
 body {
-  background: var(--color-bg);
+  background: linear-gradient(180deg, #fff7ed 0%, #fff3e6 45%, #ffeeda 100%);
+  background-attachment: fixed;
   color: var(--color-ink);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body {
+    background: var(--color-bg);
+  }
+}
+:root[data-theme="dark"] body {
+  background: var(--color-bg);
 }
 
 /* Inbox-zero confetti: each piece flies from the centre to its own (--x, --y). */

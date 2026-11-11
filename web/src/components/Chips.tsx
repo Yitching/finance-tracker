@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { money } from "../lib/money";
 import { CATEGORY_EMOJI, type Remembered } from "../lib/types";
+import { categoryChip } from "../lib/categoryStyle";
 
 type Props = {
   memory: Remembered[];
@@ -39,10 +40,10 @@ export function Chips({ memory, onTap }: Props) {
           <button
             key={m.item_key}
             onClick={() => onTap(m)}
-            className="flex shrink-0 items-center gap-1.5 rounded-full bg-card px-3.5 py-2 text-sm shadow-sm ring-1 ring-line transition active:scale-95"
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-sm shadow-sm ring-1 ring-line transition active:scale-95 ${categoryChip(m.category)}`}
           >
             <span>{CATEGORY_EMOJI[m.category] ?? "📦"}</span>
-            <span className="font-medium">{m.display_name}</span>
+            <span className="font-semibold">{m.display_name}</span>
             <span className="text-ink-soft">{money(m.last_amount)}</span>
           </button>
         ))}
