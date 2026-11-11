@@ -17,7 +17,8 @@ import { Settings } from "./components/Settings";
 import { ScreenHeader } from "./components/ScreenHeader";
 import { Insights } from "./components/Insights";
 import { periodContaining, periodFor, periodRange, periodTitle, shiftPeriod } from "./lib/period";
-import { useStatementDay } from "./lib/settings";
+import { DEFAULT_BUDGET, useMonthlyBudget, useStatementDay } from "./lib/settings";
+import { BudgetCard } from "./components/BudgetCard";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -60,6 +61,8 @@ function Home() {
   // The day new entries go on ("YYYY-MM-DD"); null = today. Stays until you clear it, for backfilling.
   const [day, setDay] = useState<string | null>(null);
   const [statementDay, setStatementDay] = useStatementDay();
+  const [monthlyBudget, setMonthlyBudget] = useMonthlyBudget();
+  const budget = monthlyBudget ?? DEFAULT_BUDGET;
   // The Spending screen's period ("YYYY-MM"); null = the one you're in now.
   const [periodKey, setPeriodKey] = useState<string | null>(null);
   const period = useMemo(
@@ -121,6 +124,19 @@ function Home() {
       }),
     [historyExpenses, period],
   );
+
+  const periodTotal = useMemo(() => periodExpenses.reduce((s, e) => s + e.amount, 0), [periodExpenses]);
+
+  // Home's budget ring: the period you're in now, from the fast 62-day query.
+  const homePeriod = useMemo(() => periodContaining(statementDay), [statementDay]);
+  const homeTotal = useMemo(() => {
+    const from = homePeriod.from.getTime();
+    const to = homePeriod.to.getTime();
+    return expenses.reduce((s, e) => {
+      const t = new Date(e.spent_at).getTime();
+      return t >= from && t < to ? s + e.amount : s;
+    }, 0);
+  }, [expenses, homePeriod]);
 
   const sources = useMemo(() => [...new Set(historyExpenses.map((e) => e.source).filter(Boolean))].sort(), [historyExpenses]);
   const filteredHistory = useMemo(() => historyExpenses.filter((e) => {
@@ -354,6 +370,12 @@ function Home() {
               <div className="h-32 animate-pulse rounded-3xl bg-card" />
             ) : (
               <>
+                <BudgetCard
+                  total={periodTotal}
+                  period={period}
+                  statementDay={statementDay}
+                  budget={budget}
+                />
                 <PeriodSummary
                   period={period}
                   previous={previous}
@@ -381,6 +403,8 @@ function Home() {
             onBack={goHome}
             onCaptured={() => void refresh()}
             statementDay={statementDay}
+            monthlyBudget={monthlyBudget}
+            onMonthlyBudgetChange={(b) => setMonthlyBudget(b)}
             onStatementDayChange={(d) => {
               setPeriodKey(null);
               return setStatementDay(d);
@@ -420,6 +444,13 @@ function Home() {
         ) : (
           <>
             {pending.length > 0 && <InboxBanner pending={pending} onOpen={() => open("inbox")} />}
+            <BudgetCard
+              compact
+              total={homeTotal}
+              period={homePeriod}
+              statementDay={statementDay}
+              budget={budget}
+            />
             <Chips memory={memory} onTap={(m) => void handleChip(m)} />
             <SummaryStrip expenses={expenses} onOpen={() => open("spending")} />
             {(recent.length > 0 || expenses.length === 0) && (
