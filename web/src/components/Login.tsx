@@ -30,13 +30,13 @@ export function Login() {
   return (
     <main className="min-h-dvh grid place-items-center px-6">
       <div className="w-full max-w-sm">
-        <div className="text-5xl mb-4">🪙</div>
-        <h1 className="text-3xl font-bold tracking-tight">Lazy Ledger</h1>
+        <div className="animate-float text-5xl mb-4">🪙</div>
+        <h1 className="text-3xl font-extrabold tracking-tight">Lazy Ledger</h1>
         <p className="mt-2 text-ink-soft">
           Type what you bought. That's it. You'll stay signed in on this device.
         </p>
 
-        <form onSubmit={submit} className="mt-8 space-y-3">
+        <form onSubmit={submit} className="mt-8 space-y-3 rounded-3xl bg-card p-4 shadow-lg shadow-orange-200/50 ring-1 ring-line dark:shadow-none">
           <input
             type="email"
             required
@@ -58,7 +58,7 @@ export function Login() {
           />
           <button
             disabled={busy}
-            className="w-full rounded-2xl bg-accent px-4 py-4 text-lg font-semibold text-white active:scale-[0.98] disabled:opacity-60"
+            className="bg-pop-gradient w-full rounded-2xl px-4 py-4 text-lg font-bold text-white shadow-md shadow-pink-200/70 active:scale-[0.98] disabled:opacity-60 dark:shadow-none"
           >
             {busy ? "Signing in…" : "Sign in"}
           </button>

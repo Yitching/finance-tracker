@@ -19,7 +19,7 @@ export function InboxBanner({ pending, onOpen }: { pending: PendingExpense[]; on
   return (
     <button
       onClick={onOpen}
-      className="flex w-full items-center gap-3 rounded-2xl bg-accent px-4 py-3.5 text-left text-white shadow-sm transition active:scale-[0.98]"
+      className="bg-pop-gradient flex w-full items-center gap-3 rounded-3xl px-4 py-3.5 text-left text-white shadow-lg shadow-pink-200/60 transition active:scale-[0.98] dark:shadow-none"
     >
       <span className="text-xl">📥</span>
       <span className="flex-1 font-semibold tabular-nums">{headline(pending)}</span>

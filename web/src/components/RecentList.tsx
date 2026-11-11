@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { dateValue, dayLabel, money, onDay } from "../lib/money";
 import { CATEGORY_EMOJI, type Expense, type ExpensePatch } from "../lib/types";
+import { categoryChip } from "../lib/categoryStyle";
 import { CategoryPicker } from "./CategoryPicker";
 import { DayPicker } from "./DayPicker";
 
@@ -27,23 +28,23 @@ export function RecentList({ expenses, onDelete, onUpdate, limit }: Props) {
 
   if (!groups.length) {
     return (
-      <div className="py-10 text-center text-ink-soft">
-        <div className="text-4xl">🌱</div>
-        <p className="mt-2">Nothing yet. Type your last purchase below.</p>
-        <p className="text-sm text-ink-faint">Try: "kopi 1.8 and kaya toast 2.5"</p>
+      <div className="animate-fade-up py-10 text-center text-ink-soft">
+        <div className="animate-float text-5xl">🌱</div>
+        <p className="mt-3 font-medium">Nothing yet. Type your last purchase below.</p>
+        <p className="mt-1 text-sm text-ink-faint">Try: "kopi 1.8 and kaya toast 2.5"</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
-      {groups.map(([label, rows]) => (
-        <section key={label}>
-          <div className="mb-1.5 flex justify-between px-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+      {groups.map(([label, rows], gi) => (
+        <section key={label} className="animate-fade-up" style={{ animationDelay: `${Math.min(gi, 4) * 70}ms` }}>
+          <div className="mb-1.5 flex justify-between px-1 text-xs font-bold tracking-wide text-ink-faint uppercase">
             <span>{label}</span>
-            <span className="tabular-nums">{money(rows.reduce((s, r) => s + r.amount, 0))}</span>
+            <span className="rounded-full bg-card px-2 py-0.5 normal-case tabular-nums ring-1 ring-line">{money(rows.reduce((s, r) => s + r.amount, 0))}</span>
           </div>
-          <ul className="divide-y divide-line overflow-hidden rounded-2xl bg-card ring-1 ring-line">
+          <ul className="divide-y divide-line overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-line">
             {rows.map((e) =>
               openId === e.id ? (
                 <EditRow
@@ -63,14 +64,16 @@ export function RecentList({ expenses, onDelete, onUpdate, limit }: Props) {
                 <li key={e.id}>
                   <button
                     onClick={() => setOpenId(e.id)}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-bg"
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition active:bg-bg active:scale-[0.99]"
                   >
-                    <span className="text-xl">{CATEGORY_EMOJI[e.category] ?? "📦"}</span>
+                    <span className={`grid size-10 shrink-0 place-items-center rounded-2xl text-xl ${categoryChip(e.category)}`}>
+                      {CATEGORY_EMOJI[e.category] ?? "📦"}
+                    </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate">{e.item}</span>
+                      <span className="block truncate font-medium">{e.item}</span>
                       {e.note && <span className="block truncate text-xs text-ink-soft">📝 {e.note}</span>}
                     </span>
-                    <span className="font-medium tabular-nums">{money(e.amount)}</span>
+                    <span className="font-bold tabular-nums">{money(e.amount)}</span>
                   </button>
                 </li>
               ),
