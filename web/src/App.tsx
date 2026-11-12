@@ -18,7 +18,9 @@ import { ScreenHeader } from "./components/ScreenHeader";
 import { Insights } from "./components/Insights";
 import { periodContaining, periodFor, periodRange, periodTitle, shiftPeriod } from "./lib/period";
 import { DEFAULT_BUDGET, useMonthlyBudget, useStatementDay } from "./lib/settings";
+import { usePots } from "./lib/pots";
 import { BudgetCard } from "./components/BudgetCard";
+import { PotsCard } from "./components/PotsCard";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -63,6 +65,7 @@ function Home() {
   const [statementDay, setStatementDay] = useStatementDay();
   const [monthlyBudget, setMonthlyBudget] = useMonthlyBudget();
   const budget = monthlyBudget ?? DEFAULT_BUDGET;
+  const [pots, setPots, addToPot] = usePots();
   // The Spending screen's period ("YYYY-MM"); null = the one you're in now.
   const [periodKey, setPeriodKey] = useState<string | null>(null);
   const period = useMemo(
@@ -136,6 +139,18 @@ function Home() {
       const t = new Date(e.spent_at).getTime();
       return t >= from && t < to ? s + e.amount : s;
     }, 0);
+  }, [expenses, homePeriod]);
+
+  // Spending pots: what each category has used in the period you're in now.
+  const homeSpentByCategory = useMemo(() => {
+    const from = homePeriod.from.getTime();
+    const to = homePeriod.to.getTime();
+    const byCategory: Record<string, number> = {};
+    for (const e of expenses) {
+      const t = new Date(e.spent_at).getTime();
+      if (t >= from && t < to) byCategory[e.category] = (byCategory[e.category] ?? 0) + e.amount;
+    }
+    return byCategory;
   }, [expenses, homePeriod]);
 
   const sources = useMemo(() => [...new Set(historyExpenses.map((e) => e.source).filter(Boolean))].sort(), [historyExpenses]);
@@ -417,6 +432,8 @@ function Home() {
             statementDay={statementDay}
             monthlyBudget={monthlyBudget}
             onMonthlyBudgetChange={(b) => setMonthlyBudget(b)}
+            pots={pots}
+            onPotsChange={(p) => setPots(p)}
             onStatementDayChange={(d) => {
               setPeriodKey(null);
               return setStatementDay(d);
@@ -476,6 +493,14 @@ function Home() {
               statementDay={statementDay}
               budget={budget}
             />
+            <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
+              <PotsCard
+                pots={pots}
+                spentByCategory={homeSpentByCategory}
+                onAddToPot={(id, amount) => void addToPot(id, amount)}
+                onManage={() => open("settings")}
+              />
+            </div>
             <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
               <Chips memory={memory} onTap={(m) => void handleChip(m)} />
             </div>
