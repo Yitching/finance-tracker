@@ -122,9 +122,10 @@ export function PeriodSummary({
                 </span>
               </div>
               <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-bg">
+                {/* scaleX, not width: animating width re-lays out the page every frame. */}
                 <div
-                  className={`h-full rounded-full ${categoryBar(cat)} transition-[width] duration-700`}
-                  style={{ width: `${max ? (amt / max) * 100 : 0}%` }}
+                  className={`h-full origin-left rounded-full ${categoryBar(cat)} transition-transform duration-500 ease-[var(--ease-out)]`}
+                  style={{ transform: `scaleX(${max ? amt / max : 0})` }}
                 />
               </div>
             </li>

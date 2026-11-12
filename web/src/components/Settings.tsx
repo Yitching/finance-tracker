@@ -10,6 +10,7 @@ import {
   type Simulation,
 } from "../lib/capture";
 import { gmailScript } from "../lib/gmailScript";
+import { isInstalledApp, useFrameRate } from "../lib/frameRate";
 import { dayLabel, money, timeLabel } from "../lib/money";
 import { applyTheme, savedTheme, type Theme } from "../lib/theme";
 import { periodContaining, periodRange, periodTitle } from "../lib/period";
@@ -255,6 +256,8 @@ export function Settings({
           ))}
         </div>
       </section>
+
+      <Smoothness />
 
       <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
         <div>
@@ -613,5 +616,56 @@ function CopyField({
         <div className="mt-0.5 font-mono text-xs break-all whitespace-pre-line select-all">{value}</div>
       )}
     </div>
+  );
+}
+
+/**
+ * Shows the frame rate this page actually gets. Some Android skins (ColorOS, OxygenOS)
+ * run Chrome at 120 Hz but cap installed web apps at 60 Hz, which makes animations
+ * feel less smooth in the app than in the browser.
+ */
+function Smoothness() {
+  const fps = useFrameRate();
+  const installed = isInstalledApp();
+  const capped = fps !== null && fps <= 65;
+
+  return (
+    <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-semibold">📱 Smoothness</h2>
+        <span className="shrink-0 rounded-full bg-bg px-3 py-1 text-sm font-bold tabular-nums ring-1 ring-line">
+          {fps === null ? "measuring…" : `${fps} fps`}
+        </span>
+      </div>
+      <p className="text-sm text-ink-soft">
+        How often your screen redraws in {installed ? "the installed app" : "this browser tab"}. Higher is smoother.
+      </p>
+      {installed && capped && (
+        <div className="space-y-2 rounded-2xl bg-bg p-4 text-sm">
+          <p>
+            Your phone is running the app at 60 fps. Some phones, including OPPO and OnePlus, cap installed web apps
+            lower than Chrome. To get the full rate:
+          </p>
+          <ul className="list-disc space-y-1 pl-5 text-ink-soft">
+            <li>
+              Settings → Display &amp; brightness → <b>Screen refresh rate</b> → <b>High</b>, or set Lazy Ledger to the
+              highest rate if your phone has per-app options.
+            </li>
+            <li>
+              Long-press the app icon → App info → Battery → <b>Unrestricted</b>. Power saving also caps the rate.
+            </li>
+            <li>
+              Check App info says the app comes from <b>Chrome</b>. If not, uninstall it and reinstall from Chrome
+              (⋮ → Install app).
+            </li>
+          </ul>
+        </div>
+      )}
+      {!installed && (
+        <p className="text-xs text-ink-faint">
+          Open the installed app and check here again to compare. If the app reads lower, your phone is capping it.
+        </p>
+      )}
+    </section>
   );
 }

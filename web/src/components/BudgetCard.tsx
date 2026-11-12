@@ -66,7 +66,7 @@ export function BudgetCard({
         strokeLinecap="round"
         strokeDasharray={C}
         strokeDashoffset={C * (1 - shown)}
-        style={{ transition: "stroke-dashoffset 1s ease" }}
+        style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.22, 1, 0.36, 1)" }}
       />
     </svg>
   );
@@ -127,17 +127,17 @@ export function BudgetCard({
         </div>
       </div>
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-        <div className="min-w-0 rounded-2xl bg-white/20 px-1.5 py-2.5 backdrop-blur-sm">
+        <div className="min-w-0 rounded-2xl bg-white/25 px-1.5 py-2.5">
           <div className="truncate text-xs text-white/80">Days left</div>
           <div className="truncate text-sm font-extrabold tabular-nums @min-[21rem]:text-base">{stats.left ?? "—"}</div>
         </div>
-        <div className="min-w-0 rounded-2xl bg-white/20 px-1.5 py-2.5 backdrop-blur-sm">
+        <div className="min-w-0 rounded-2xl bg-white/25 px-1.5 py-2.5">
           <div className="truncate text-xs text-white/80">{stats.over ? "Spent / day" : "Left / day"}</div>
           <div className="truncate text-sm font-extrabold tabular-nums @min-[21rem]:text-base">
             {money(stats.over ? stats.dailySoFar : stats.dailyLeft)}
           </div>
         </div>
-        <div className="min-w-0 rounded-2xl bg-white/20 px-1.5 py-2.5 backdrop-blur-sm">
+        <div className="min-w-0 rounded-2xl bg-white/25 px-1.5 py-2.5">
           <div className="truncate text-xs text-white/80">Daily pace</div>
           <div className="truncate text-sm font-extrabold tabular-nums @min-[21rem]:text-base">{money(budget / Math.max(1, Math.round((period.to.getTime() - period.from.getTime()) / 86_400_000)))}</div>
         </div>

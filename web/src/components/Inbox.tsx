@@ -183,7 +183,9 @@ function SwipeCard({
           }}
           style={{
             transform: `translateX(${x}px) rotate(${x / 18}deg)`,
-            transition: dragging ? "none" : "transform 200ms ease-out",
+            transition: dragging ? "none" : "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
+            // Promote the card before the finger moves, so the first frames don't stutter.
+            willChange: dragging ? "transform" : undefined,
           }}
           className={`relative rounded-3xl bg-card p-5 shadow-lg ring-1 ring-line ${
             editing ? "" : "touch-pan-y select-none"

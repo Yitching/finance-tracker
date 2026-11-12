@@ -109,7 +109,7 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
         e.preventDefault();
         void submit();
       }}
-      className={`rounded-3xl bg-card p-2 shadow-xl shadow-orange-200/50 ring-1 ring-line focus-within:ring-2 focus-within:ring-pop-1 dark:shadow-none ${day ? "ring-2 ring-accent" : ""}`}
+      className={`rounded-3xl bg-card p-2 shadow-lg shadow-orange-200/50 ring-1 ring-line focus-within:ring-2 focus-within:ring-pop-1 dark:shadow-none ${day ? "ring-2 ring-accent" : ""}`}
     >
       {/* Backfilling a missed day: everything you log goes on the picked day until you clear it. */}
       <div className="@container flex items-center gap-1 px-1 pb-1">

@@ -17,13 +17,16 @@
   --color-pop-3: #ffd166;
   --color-lime: #d9f99d;
 
-  --animate-fade-up: fade-up 0.5s ease both;
-  --animate-pop: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+  /* Short and ease-out: reads as smooth even when a phone caps an installed app at 60 fps.
+     Every animation here moves only transform and opacity, which skip layout and paint. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-fade-up: fade-up 0.35s var(--ease-out) both;
+  --animate-pop: pop 0.3s cubic-bezier(0.34, 1.3, 0.64, 1) both;
 
   @keyframes fade-up {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(8px);
     }
     to {
       opacity: 1;
@@ -33,7 +36,7 @@
   @keyframes pop {
     from {
       opacity: 0;
-      transform: scale(0.92);
+      transform: scale(0.94);
     }
     to {
       opacity: 1;
