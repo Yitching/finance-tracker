@@ -309,8 +309,8 @@ function Home() {
     const now = new Date();
     const h = now.getHours();
     const greet = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-    const date = now.toLocaleDateString("en-SG", { weekday: "long", day: "numeric", month: "short" });
-    return `${greet} 👋 · ${date}`;
+    const date = now.toLocaleDateString("en-SG", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
+    return `${greet} · ${date}`;
   }, []);
 
   const toastBar = toast && (
@@ -364,12 +364,15 @@ function Home() {
               </button>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              {!isCurrent && (
-                <button onClick={() => setPeriodKey(null)} className="font-medium text-accent">
-                  Back to {statementDay ? "current bill" : "this month"}
+              {isCurrent ? (
+                <span className="min-w-0 flex-1 truncate text-ink-soft">
+                  {visiblePeriodExpenses.length} expense{visiblePeriodExpenses.length === 1 ? "" : "s"}
+                </span>
+              ) : (
+                <button onClick={() => setPeriodKey(null)} className="min-w-0 flex-1 truncate text-left font-medium text-accent">
+                  ‹ Back to {statementDay ? "current bill" : "this month"}
                 </button>
               )}
-              <span className="flex-1" />
               <button onClick={() => void exportCsv(false)} className="bg-pop-gradient rounded-full px-4 py-2 text-sm font-bold text-white shadow-md shadow-pink-200/70 transition active:scale-95 dark:shadow-none">Export</button>
               <button onClick={() => void exportCsv(true)} className="rounded-full bg-card px-4 py-2 text-sm font-bold ring-1 ring-line transition active:scale-95">All</button>
             </div>
@@ -389,6 +392,7 @@ function Home() {
                   previous={previous}
                   previousTitle={periodTitle(previous, statementDay)}
                   expenses={filteredHistory}
+                  hideTotal
                 />
                 <RecentList expenses={visiblePeriodExpenses} onDelete={handleDelete} onUpdate={update} />
               </>
@@ -430,15 +434,15 @@ function Home() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
-      <header className="flex items-center justify-between px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
-        <div>
+      <header className="flex items-center justify-between gap-3 px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-extrabold tracking-tight">
-            Lazy Ledger <span className="animate-float inline-block">🪙</span>
+            Lazy Ledger 🪙
           </h1>
-          <p className="text-sm text-ink-soft">{greeting}</p>
+          <p className="truncate text-sm text-ink-soft">{greeting}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-bg">
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-bg">
             {daysLogged > 0 ? `🔥 ${daysLogged}/7 days` : "✨ Fresh week"}
           </span>
           <button

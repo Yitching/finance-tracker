@@ -35,7 +35,8 @@ export function Chips({ memory, onTap }: Props) {
       <div className="mb-1.5 px-1 text-xs font-semibold tracking-wide text-ink-faint uppercase">
         Usual around now · one tap
       </div>
-      <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+      {/* The fade on the right says "there's more, swipe". */}
+      <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)]">
         {chips.map((m) => (
           <button
             key={m.item_key}

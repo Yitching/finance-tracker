@@ -38,7 +38,7 @@ const TONE = { up: { mark: "▲", className: "text-danger" }, down: { mark: "▼
 /** The AI headline. Loads on open; the server caches it until your data or the day changes. */
 function InsightCard() {
   const [result, setResult] = useState<InsightResponse | null>(null); const [busy, setBusy] = useState(true); const [error, setError] = useState<string | null>(null);
-  const load = useCallback(async (refresh: boolean) => { setBusy(true); setError(null); const { data, error: invokeError } = await supabase.functions.invoke<InsightResponse>("spending-insights", { body: { refresh } }); if (invokeError || !data) setError("Couldn't load your insight. Please try again."); else setResult(data); setBusy(false); }, []);
+  const load = useCallback(async (refresh: boolean) => { setBusy(true); setError(null); const { data, error: invokeError } = await supabase.functions.invoke<InsightResponse>("spending-insights", { body: { refresh } }); if (invokeError || !data || typeof data.headline !== "string") setError("Couldn't load your insight. Please try again."); else setResult(data); setBusy(false); }, []);
   useEffect(() => { void load(false); }, [load]);
   const p = result?.period; const t = result?.totals;
   return <section className="animate-fade-up rounded-3xl bg-card p-5 shadow-sm ring-1 ring-line">
@@ -48,7 +48,7 @@ function InsightCard() {
     {result && <div className={`mt-2 space-y-4 ${busy ? "opacity-60" : ""}`}>
       <div><p className="text-lg font-semibold leading-snug">{result.headline}</p>{result.detail && <p className="mt-1 text-sm text-ink-soft">{result.detail}</p>}</div>
       {t && t.thisPeriod > 0 && <div className="grid grid-cols-2 gap-3 text-sm"><div className="rounded-2xl bg-bg p-3"><div className="text-xs text-ink-faint">So far</div><div className="mt-0.5 font-bold tabular-nums">{money(t.thisPeriod)}</div><div className="text-xs text-ink-soft">{money(t.sameTimeLastPeriod)} same time last period</div></div>{t.projectedThisPeriod !== null ? <div className="rounded-2xl bg-bg p-3"><div className="text-xs text-ink-faint">On pace for</div><div className="mt-0.5 font-bold tabular-nums">{money(t.projectedThisPeriod)}</div><div className="text-xs text-ink-soft">{money(t.lastPeriodFull)} last period</div></div> : <div className="rounded-2xl bg-bg p-3"><div className="text-xs text-ink-faint">Last period</div><div className="mt-0.5 font-bold tabular-nums">{money(t.lastPeriodFull)}</div></div>}</div>}
-      {result.highlights.length > 0 && <ul className="space-y-2 text-sm">{result.highlights.map((h) => <li key={h.text} className="flex gap-2"><span className={TONE[h.tone].className}>{TONE[h.tone].mark}</span><span>{h.text}</span></li>)}</ul>}
+      {(result.highlights ?? []).length > 0 && <ul className="space-y-2 text-sm">{(result.highlights ?? []).map((h) => { const tone = TONE[h.tone] ?? TONE.neutral; return <li key={h.text} className="flex gap-2"><span className={tone.className}>{tone.mark}</span><span>{h.text}</span></li>; })}</ul>}
       {result.tip && <p className="rounded-2xl bg-amber-100 p-3 text-sm dark:bg-amber-900/40"><span className="font-semibold">Try: </span>{result.tip}</p>}
     </div>}
   </section>;

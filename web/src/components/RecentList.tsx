@@ -29,7 +29,7 @@ export function RecentList({ expenses, onDelete, onUpdate, limit }: Props) {
   if (!groups.length) {
     return (
       <div className="animate-fade-up py-10 text-center text-ink-soft">
-        <div className="animate-float text-5xl">🌱</div>
+        <div className="text-5xl">🌱</div>
         <p className="mt-3 font-medium">Nothing yet. Type your last purchase below.</p>
         <p className="mt-1 text-sm text-ink-faint">Try: "kopi 1.8 and kaya toast 2.5"</p>
       </div>
@@ -40,9 +40,9 @@ export function RecentList({ expenses, onDelete, onUpdate, limit }: Props) {
     <div className="space-y-5">
       {groups.map(([label, rows], gi) => (
         <section key={label} className="animate-fade-up" style={{ animationDelay: `${Math.min(gi, 4) * 70}ms` }}>
-          <div className="mb-1.5 flex justify-between px-1 text-xs font-bold tracking-wide text-ink-faint uppercase">
+          <div className="mb-1.5 flex items-baseline justify-between px-2 text-xs font-bold tracking-wide text-ink-faint uppercase">
             <span>{label}</span>
-            <span className="rounded-full bg-card px-2 py-0.5 normal-case tabular-nums ring-1 ring-line">{money(rows.reduce((s, r) => s + r.amount, 0))}</span>
+            <span className="normal-case tabular-nums">{money(rows.reduce((s, r) => s + r.amount, 0))}</span>
           </div>
           <ul className="divide-y divide-line overflow-hidden rounded-3xl bg-card shadow-sm ring-1 ring-line">
             {rows.map((e) =>

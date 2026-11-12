@@ -132,6 +132,25 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
             ✕ Today
           </button>
         )}
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={busy}
+          aria-label="Scan a receipt"
+          className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium transition active:scale-95 disabled:opacity-40 dark:bg-amber-900/50"
+        >
+          📷{!day && " Receipt"}
+        </button>
+        <button
+          type="button"
+          onClick={() => statementRef.current?.click()}
+          disabled={busy}
+          aria-label="Import a bank statement PDF"
+          className="flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium transition active:scale-95 disabled:opacity-40 dark:bg-sky-900/50"
+        >
+          📄{!day && " Statement"}
+        </button>
       </div>
 
       {match && (
@@ -184,24 +203,6 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
             if (file) void onPhoto(file);
           }}
         />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={busy}
-          aria-label="Scan a receipt"
-          className="grid size-11 shrink-0 place-items-center rounded-2xl bg-amber-100 text-xl transition active:scale-95 disabled:opacity-40 dark:bg-amber-900/50"
-        >
-          📷
-        </button>
-        <button
-          type="button"
-          onClick={() => statementRef.current?.click()}
-          disabled={busy}
-          aria-label="Import a bank statement PDF"
-          className="grid size-11 shrink-0 place-items-center rounded-2xl bg-sky-100 text-lg transition active:scale-95 disabled:opacity-40 dark:bg-sky-900/50"
-        >
-          📄
-        </button>
         {SpeechRecognition && (
           <button
             type="button"

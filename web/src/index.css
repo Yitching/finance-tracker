@@ -19,7 +19,6 @@
 
   --animate-fade-up: fade-up 0.5s ease both;
   --animate-pop: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
-  --animate-float: float 3s ease-in-out infinite;
 
   @keyframes fade-up {
     from {
@@ -39,15 +38,6 @@
     to {
       opacity: 1;
       transform: scale(1);
-    }
-  }
-  @keyframes float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-6px);
     }
   }
 }
@@ -94,21 +84,38 @@
 
 html,
 body {
-  background: linear-gradient(180deg, #fff7ed 0%, #fff3e6 45%, #ffeeda 100%);
-  background-attachment: fixed;
+  background-color: var(--color-bg);
   color: var(--color-ink);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
 }
 
+/* The peach wash sits on its own fixed layer. (background-attachment: fixed is ignored by
+   phone browsers, which made the gradient stop after one screen and cards float on a seam.) */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, #fff7ed 0%, #fff3e6 45%, #ffeeda 100%);
+}
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) body {
-    background: var(--color-bg);
+  :root:not([data-theme="light"]) body::before {
+    background: none;
   }
 }
-:root[data-theme="dark"] body {
-  background: var(--color-bg);
+:root[data-theme="dark"] body::before {
+  background: none;
+}
+
+/* Entrance animations are decoration: skip them for people who ask for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-pop {
+    animation: none;
+  }
 }
 
 /* Inbox-zero confetti: each piece flies from the centre to its own (--x, --y). */

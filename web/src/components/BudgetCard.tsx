@@ -117,9 +117,8 @@ export function BudgetCard({
           <div className="text-sm text-white/85">
             {periodTitle(period, statementDay)} · {periodRange(period)}
           </div>
-          <div className="mt-0.5 text-3xl font-extrabold tracking-tight tabular-nums">
-            {money(total)} <span className="text-base font-semibold text-white/80">of {money(budget)}</span>
-          </div>
+          <div className="mt-0.5 text-3xl font-extrabold tracking-tight tabular-nums">{money(total)}</div>
+          <div className="text-sm font-semibold text-white/80 tabular-nums">of {money(budget)}</div>
           <div className="mt-1.5 inline-block rounded-full bg-white px-3 py-1 text-xs font-bold text-pink-600">
             {stats.over ? `${money(-stats.remaining)} over budget` : `${money(stats.remaining)} left`}
           </div>

@@ -30,7 +30,7 @@ export function Login() {
   return (
     <main className="min-h-dvh grid place-items-center px-6">
       <div className="w-full max-w-sm">
-        <div className="animate-float text-5xl mb-4">🪙</div>
+        <div className="text-5xl mb-4">🪙</div>
         <h1 className="text-3xl font-extrabold tracking-tight">Lazy Ledger</h1>
         <p className="mt-2 text-ink-soft">
           Type what you bought. That's it. You'll stay signed in on this device.

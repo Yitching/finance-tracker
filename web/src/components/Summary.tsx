@@ -46,11 +46,14 @@ export function PeriodSummary({
   previous,
   previousTitle,
   expenses,
+  hideTotal = false,
 }: {
   period: Period;
   previous: Period;
   previousTitle: string;
   expenses: Expense[];
+  /** When the budget card above already shows the total and days left. */
+  hideTotal?: boolean;
 }) {
   const { total, byCategory, compareTotal, ongoing } = useMemo(() => {
     const now = Date.now();
@@ -82,6 +85,9 @@ export function PeriodSummary({
 
   return (
     <section className="animate-fade-up rounded-3xl bg-card p-5 shadow-sm ring-1 ring-line">
+      {hideTotal ? (
+        <h2 className="font-bold">Where it went</h2>
+      ) : (
       <div className="flex items-baseline justify-between gap-3">
         <div className="text-4xl font-extrabold tracking-tight tabular-nums">{money(total)}</div>
         {left !== null && (
@@ -90,6 +96,7 @@ export function PeriodSummary({
           </div>
         )}
       </div>
+      )}
       {compareTotal > 0 && (
         <div className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${diff > 0 ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"}`}>
           {diff > 0 ? "▲" : "▼"} {money(Math.abs(diff))} vs {ongoing ? `same point of ${previousTitle}` : previousTitle}
