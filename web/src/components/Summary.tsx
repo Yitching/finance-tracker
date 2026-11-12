@@ -22,17 +22,20 @@ export function SummaryStrip({ expenses, onOpen }: { expenses: Expense[]; onOpen
   return (
     <button
       onClick={onOpen}
-      className="flex w-full items-center gap-3 rounded-3xl bg-card p-2 text-left shadow-sm ring-1 ring-line transition active:scale-[0.99]"
+      aria-label="Spending breakdown"
+      className="@container flex w-full items-center gap-2 rounded-3xl bg-card p-2 text-left shadow-sm ring-1 ring-line transition active:scale-[0.99] @min-[22rem]:gap-3"
     >
-      <span className="flex-1 rounded-2xl bg-lime-200/70 px-4 py-3 dark:bg-lime-900/40">
+      <span className="min-w-0 flex-1 rounded-2xl bg-lime-200/70 px-3 py-3 dark:bg-lime-900/40 @min-[22rem]:px-4">
         <span className="block text-xs font-semibold text-ink-soft">Today</span>
-        <span className="text-xl font-extrabold tabular-nums">{money(today)}</span>
+        <span className="block truncate text-lg font-extrabold tabular-nums @min-[22rem]:text-xl">{money(today)}</span>
       </span>
-      <span className="flex-1 rounded-2xl bg-amber-100 px-4 py-3 dark:bg-amber-900/40">
+      <span className="min-w-0 flex-1 rounded-2xl bg-amber-100 px-3 py-3 dark:bg-amber-900/40 @min-[22rem]:px-4">
         <span className="block text-xs font-semibold text-ink-soft">This week</span>
-        <span className="text-xl font-extrabold tabular-nums">{money(week)}</span>
+        <span className="block truncate text-lg font-extrabold tabular-nums @min-[22rem]:text-xl">{money(week)}</span>
       </span>
-      <span className="shrink-0 rounded-full bg-ink px-3 py-2 text-xs font-bold text-bg">Breakdown ›</span>
+      <span className="shrink-0 rounded-full bg-ink px-3 py-2 text-xs font-bold whitespace-nowrap text-bg">
+        <span className="@max-[22rem]:hidden">Breakdown </span>›
+      </span>
     </button>
   );
 }

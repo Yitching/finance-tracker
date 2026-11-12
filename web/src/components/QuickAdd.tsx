@@ -112,11 +112,11 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
       className={`rounded-3xl bg-card p-2 shadow-xl shadow-orange-200/50 ring-1 ring-line focus-within:ring-2 focus-within:ring-pop-1 dark:shadow-none ${day ? "ring-2 ring-accent" : ""}`}
     >
       {/* Backfilling a missed day: everything you log goes on the picked day until you clear it. */}
-      <div className="flex items-center gap-1 px-1 pb-1">
+      <div className="@container flex items-center gap-1 px-1 pb-1">
         <DayPicker
           value={day ?? dateValue()}
           onChange={(v) => onDayChange(v === dateValue() ? null : v)}
-          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+          className={`min-w-0 truncate rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${
             day ? "bg-accent text-white" : "text-ink-soft active:bg-bg"
           }`}
         >
@@ -127,7 +127,7 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
             type="button"
             onClick={() => onDayChange(null)}
             aria-label="Back to today"
-            className="rounded-full px-2 py-1 text-xs text-ink-soft active:bg-bg"
+            className="shrink-0 rounded-full px-2 py-1 text-xs whitespace-nowrap text-ink-soft active:bg-bg"
           >
             ✕ Today
           </button>
@@ -138,18 +138,18 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
           onClick={() => fileRef.current?.click()}
           disabled={busy}
           aria-label="Scan a receipt"
-          className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium transition active:scale-95 disabled:opacity-40 dark:bg-amber-900/50"
+          className="flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium whitespace-nowrap transition active:scale-95 disabled:opacity-40 dark:bg-amber-900/50"
         >
-          📷{!day && " Receipt"}
+          📷{!day && <span className="@max-[20rem]:hidden">Receipt</span>}
         </button>
         <button
           type="button"
           onClick={() => statementRef.current?.click()}
           disabled={busy}
           aria-label="Import a bank statement PDF"
-          className="flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium transition active:scale-95 disabled:opacity-40 dark:bg-sky-900/50"
+          className="flex shrink-0 items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium whitespace-nowrap transition active:scale-95 disabled:opacity-40 dark:bg-sky-900/50"
         >
-          📄{!day && " Statement"}
+          📄{!day && <span className="@max-[20rem]:hidden">Statement</span>}
         </button>
       </div>
 

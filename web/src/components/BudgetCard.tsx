@@ -102,8 +102,9 @@ export function BudgetCard({
   }
 
   return (
-    <section className="bg-pop-gradient animate-fade-up rounded-3xl p-5 text-white shadow-lg shadow-pink-200/60 dark:shadow-none">
-      <div className="flex items-center gap-5">
+    <section className="@container bg-pop-gradient animate-fade-up rounded-3xl p-5 text-white shadow-lg shadow-pink-200/60 dark:shadow-none">
+      {/* Side by side when there's room; ring on top on small screens or with large text. */}
+      <div className="flex flex-col items-center gap-4 text-center @min-[21rem]:flex-row @min-[21rem]:gap-5 @min-[21rem]:text-left">
         <div className="relative shrink-0 animate-pop">
           {ring(128, 11)}
           <div className="absolute inset-0 grid place-items-center">
@@ -113,11 +114,11 @@ export function BudgetCard({
             </div>
           </div>
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="w-full min-w-0 flex-1">
           <div className="text-sm text-white/85">
             {periodTitle(period, statementDay)} · {periodRange(period)}
           </div>
-          <div className="mt-0.5 text-3xl font-extrabold tracking-tight tabular-nums">{money(total)}</div>
+          <div className="mt-0.5 truncate text-3xl font-extrabold tracking-tight tabular-nums">{money(total)}</div>
           <div className="text-sm font-semibold text-white/80 tabular-nums">of {money(budget)}</div>
           <div className="mt-1.5 inline-block rounded-full bg-white px-3 py-1 text-xs font-bold text-pink-600">
             {stats.over ? `${money(-stats.remaining)} over budget` : `${money(stats.remaining)} left`}
@@ -126,19 +127,19 @@ export function BudgetCard({
         </div>
       </div>
       <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-2xl bg-white/20 px-2 py-2.5 backdrop-blur-sm">
-          <div className="text-xs text-white/80">Days left</div>
-          <div className="font-extrabold tabular-nums">{stats.left ?? "—"}</div>
+        <div className="min-w-0 rounded-2xl bg-white/20 px-1.5 py-2.5 backdrop-blur-sm">
+          <div className="truncate text-xs text-white/80">Days left</div>
+          <div className="truncate text-sm font-extrabold tabular-nums @min-[21rem]:text-base">{stats.left ?? "—"}</div>
         </div>
-        <div className="rounded-2xl bg-white/20 px-2 py-2.5 backdrop-blur-sm">
-          <div className="text-xs text-white/80">{stats.over ? "Spent / day" : "Left / day"}</div>
-          <div className="font-extrabold tabular-nums">
+        <div className="min-w-0 rounded-2xl bg-white/20 px-1.5 py-2.5 backdrop-blur-sm">
+          <div className="truncate text-xs text-white/80">{stats.over ? "Spent / day" : "Left / day"}</div>
+          <div className="truncate text-sm font-extrabold tabular-nums @min-[21rem]:text-base">
             {money(stats.over ? stats.dailySoFar : stats.dailyLeft)}
           </div>
         </div>
-        <div className="rounded-2xl bg-white/20 px-2 py-2.5 backdrop-blur-sm">
-          <div className="text-xs text-white/80">Daily pace</div>
-          <div className="font-extrabold tabular-nums">{money(budget / Math.max(1, Math.round((period.to.getTime() - period.from.getTime()) / 86_400_000)))}</div>
+        <div className="min-w-0 rounded-2xl bg-white/20 px-1.5 py-2.5 backdrop-blur-sm">
+          <div className="truncate text-xs text-white/80">Daily pace</div>
+          <div className="truncate text-sm font-extrabold tabular-nums @min-[21rem]:text-base">{money(budget / Math.max(1, Math.round((period.to.getTime() - period.from.getTime()) / 86_400_000)))}</div>
         </div>
       </div>
       <p className="mt-3 text-xs text-white/75">

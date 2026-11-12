@@ -376,7 +376,7 @@ function Home() {
               <button onClick={() => void exportCsv(false)} className="bg-pop-gradient rounded-full px-4 py-2 text-sm font-bold text-white shadow-md shadow-pink-200/70 transition active:scale-95 dark:shadow-none">Export</button>
               <button onClick={() => void exportCsv(true)} className="rounded-full bg-card px-4 py-2 text-sm font-bold ring-1 ring-line transition active:scale-95">All</button>
             </div>
-            <section className="rounded-3xl bg-card p-3 shadow-sm ring-1 ring-line"><div className="flex items-center gap-2"><input value={filters.text} onChange={(e) => setFilters((f) => ({ ...f, text: e.target.value }))} placeholder="Search expenses" aria-label="Search expenses" className="min-w-0 flex-1 rounded-xl bg-bg px-3 py-2 text-sm outline-none ring-1 ring-line focus:ring-accent" />{hasFilters && <button onClick={() => setFilters({ text: "", category: "", source: "", minAmount: "", maxAmount: "", from: "", to: "" })} className="shrink-0 px-1 text-xs font-medium text-accent">Clear</button>}</div><div className="mt-2 grid grid-cols-2 gap-2"><select value={filters.category} onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))} aria-label="Filter by category" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All categories</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select><select value={filters.source} onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))} aria-label="Filter by source" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All sources</option>{sources.map((s) => <option key={s}>{s}</option>)}</select><input type="number" min="0" step="0.01" value={filters.minAmount} onChange={(e) => setFilters((f) => ({ ...f, minAmount: e.target.value }))} placeholder="Min amount" aria-label="Minimum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="number" min="0" step="0.01" value={filters.maxAmount} onChange={(e) => setFilters((f) => ({ ...f, maxAmount: e.target.value }))} placeholder="Max amount" aria-label="Maximum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} aria-label="Filter from date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} aria-label="Filter to date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /></div>{hasFilters && <p className="mt-2 text-xs text-ink-faint">Showing {filteredHistory.length} matching confirmed expenses</p>}</section>
+            <section className="@container rounded-3xl bg-card p-3 shadow-sm ring-1 ring-line"><div className="flex items-center gap-2"><input value={filters.text} onChange={(e) => setFilters((f) => ({ ...f, text: e.target.value }))} placeholder="Search expenses" aria-label="Search expenses" className="min-w-0 flex-1 rounded-xl bg-bg px-3 py-2 text-sm outline-none ring-1 ring-line focus:ring-accent" />{hasFilters && <button onClick={() => setFilters({ text: "", category: "", source: "", minAmount: "", maxAmount: "", from: "", to: "" })} className="shrink-0 px-1 text-xs font-medium text-accent">Clear</button>}</div><div className="mt-2 grid grid-cols-1 gap-2 @min-[17rem]:grid-cols-2"><select value={filters.category} onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))} aria-label="Filter by category" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All categories</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select><select value={filters.source} onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))} aria-label="Filter by source" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All sources</option>{sources.map((s) => <option key={s}>{s}</option>)}</select><input type="number" min="0" step="0.01" value={filters.minAmount} onChange={(e) => setFilters((f) => ({ ...f, minAmount: e.target.value }))} placeholder="Min amount" aria-label="Minimum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="number" min="0" step="0.01" value={filters.maxAmount} onChange={(e) => setFilters((f) => ({ ...f, maxAmount: e.target.value }))} placeholder="Max amount" aria-label="Maximum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} aria-label="Filter from date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} aria-label="Filter to date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /></div>{hasFilters && <p className="mt-2 text-xs text-ink-faint">Showing {filteredHistory.length} matching confirmed expenses</p>}</section>
             {historyLoading && !historyExpenses.length ? (
               <div className="h-32 animate-pulse rounded-3xl bg-card" />
             ) : (
@@ -434,16 +434,24 @@ function Home() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
-      <header className="flex items-center justify-between gap-3 px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
+      <header className="@container flex items-center justify-between gap-3 px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            Lazy Ledger 🪙
+          <h1 className="truncate text-lg font-extrabold tracking-tight @min-[18rem]:text-xl @min-[22rem]:text-2xl">
+            Lazy Ledger<span className="@max-[20rem]:hidden"> 🪙</span>
           </h1>
           <p className="truncate text-sm text-ink-soft">{greeting}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-bg">
-            {daysLogged > 0 ? `🔥 ${daysLogged}/7 days` : "✨ Fresh week"}
+            {daysLogged > 0 ? (
+              <>
+                🔥 {daysLogged}/7<span className="@max-[21rem]:hidden"> days</span>
+              </>
+            ) : (
+              <>
+                ✨<span className="@max-[21rem]:hidden"> Fresh week</span>
+              </>
+            )}
           </span>
           <button
             onClick={() => open("settings")}
