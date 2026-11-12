@@ -15,7 +15,8 @@ import { dayLabel, money, timeLabel } from "../lib/money";
 import { applyTheme, savedTheme, type Theme } from "../lib/theme";
 import { periodContaining, periodRange, periodTitle } from "../lib/period";
 import { DEFAULT_BUDGET } from "../lib/settings";
-import { CATEGORY_EMOJI, type MerchantRule } from "../lib/types";
+import { emojiForCategory, SAVE_EMOJIS, type Pot, type PotKind } from "../lib/pots";
+import { CATEGORIES, CATEGORY_EMOJI, type MerchantRule } from "../lib/types";
 import { ScreenHeader } from "./ScreenHeader";
 
 type TokenInfo = { user_id: string; created_at: string; last_used_at: string | null };
@@ -54,6 +55,8 @@ export function Settings({
   monthlyBudget,
   onMonthlyBudgetChange,
   onStatementDayChange,
+  pots,
+  onPotsChange,
 }: {
   onBack: () => void;
   onCaptured: () => void;
@@ -61,6 +64,8 @@ export function Settings({
   monthlyBudget: number | null;
   onMonthlyBudgetChange: (budget: number | null) => Promise<void>;
   onStatementDayChange: (day: number | null) => Promise<void>;
+  pots: Pot[];
+  onPotsChange: (pots: Pot[]) => Promise<void>;
 }) {
   const [info, setInfo] = useState<TokenInfo | null | undefined>(undefined);
   const [token, setToken] = useState<string | null>(() => savedToken());
@@ -75,6 +80,64 @@ export function Settings({
   const [cycleError, setCycleError] = useState<string | null>(null);
   const [budgetText, setBudgetText] = useState(() => String(monthlyBudget ?? DEFAULT_BUDGET));
   const [budgetError, setBudgetError] = useState<string | null>(null);
+  // Pots are edited as a draft and saved as one list.
+  const [potsDraft, setPotsDraft] = useState<Pot[]>(pots);
+  const [potsError, setPotsError] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
+  const [newKind, setNewKind] = useState<PotKind>("spend");
+  const [newCategory, setNewCategory] = useState<string>("Food");
+  const [newEmoji, setNewEmoji] = useState(SAVE_EMOJIS[0]);
+  const [newAmount, setNewAmount] = useState("");
+  // Keep the draft in step when pots arrive from the server (or change after a save).
+  const [prevPots, setPrevPots] = useState(pots);
+  if (prevPots !== pots) {
+    setPrevPots(pots);
+    setPotsDraft(pots);
+  }
+
+  function addPot() {
+    setPotsError(null);
+    const name = newName.trim();
+    const amount = Number(newAmount);
+    if (!name) {
+      setPotsError("Give the pot a name.");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setPotsError("Enter an amount over $0.");
+      return;
+    }
+    const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `pot-${Date.now()}`;
+    const pot: Pot = {
+      id,
+      name,
+      emoji: newKind === "save" ? newEmoji : emojiForCategory(newCategory),
+      kind: newKind,
+      category: newKind === "spend" ? newCategory : null,
+      amount: Math.round(amount * 100) / 100,
+      saved: 0,
+    };
+    setPotsDraft((d) => [...d, pot]);
+    setNewName("");
+    setNewAmount("");
+  }
+
+  async function savePots() {
+    setPotsError(null);
+    if (potsDraft.some((p) => !p.name.trim() || !Number.isFinite(p.amount) || p.amount <= 0)) {
+      setPotsError("Every pot needs a name and an amount over $0.");
+      return;
+    }
+    if (potsDraft.some((p) => p.kind === "spend" && !p.category)) {
+      setPotsError("Every spending pot needs a category.");
+      return;
+    }
+    try {
+      await onPotsChange(potsDraft);
+    } catch {
+      setPotsError("Couldn't save that. Has the latest database migration been pushed?");
+    }
+  }
   const current = periodContaining(statementDay);
 
   async function changeMonthlyBudget() {
@@ -325,6 +388,165 @@ export function Settings({
           {money(monthlyBudget ?? DEFAULT_BUDGET)} for the whole period
         </p>
         {budgetError && <p className="text-sm text-danger">{budgetError}</p>}
+      </section>
+
+      <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
+        <div>
+          <h2 className="text-lg font-semibold">🫙 Pots</h2>
+          <p className="mt-1 text-sm text-ink-soft">
+            Mini-budgets inside your $1,200. A spending pot caps one category for the period and fills from your real
+            spending; a saving pot is a target you top up yourself, like Furano fun money. Edit the amounts, then
+            save — the pots on Home update straight away.
+          </p>
+        </div>
+
+        {potsDraft.length === 0 ? (
+          <p className="rounded-xl bg-bg px-3 py-2 text-sm text-ink-soft">No pots yet — add your first one below.</p>
+        ) : (
+          <ul className="space-y-3">
+            {potsDraft.map((pot) => (
+              <li key={pot.id} className="space-y-2 rounded-2xl bg-bg p-3 ring-1 ring-line">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{pot.emoji}</span>
+                  <input
+                    value={pot.name}
+                    onChange={(e) =>
+                      setPotsDraft((d) => d.map((p) => (p.id === pot.id ? { ...p, name: e.target.value } : p)))
+                    }
+                    aria-label={`Name of pot ${pot.name}`}
+                    className="min-w-0 flex-1 rounded-lg bg-card px-2 py-1.5 text-sm font-semibold ring-1 ring-line"
+                  />
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Delete the "${pot.name}" pot?`)) {
+                        setPotsDraft((d) => d.filter((p) => p.id !== pot.id));
+                      }
+                    }}
+                    aria-label={`Delete pot ${pot.name}`}
+                    className="shrink-0 px-1 text-sm text-danger"
+                  >
+                    Delete
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="rounded-full bg-card px-2 py-1 text-xs font-semibold ring-1 ring-line">
+                    {pot.kind === "spend" ? `Spending · ${pot.category}` : "Saving"}
+                  </span>
+                  <label className="flex items-center gap-1.5">
+                    <span className="text-ink-soft">{pot.kind === "spend" ? "Cap" : "Target"} $</span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      inputMode="decimal"
+                      value={pot.amount}
+                      onChange={(e) =>
+                        setPotsDraft((d) =>
+                          d.map((p) => (p.id === pot.id ? { ...p, amount: Number(e.target.value) || 0 } : p)),
+                        )
+                      }
+                      aria-label={`${pot.kind === "spend" ? "Cap" : "Target"} for pot ${pot.name}`}
+                      className="w-24 rounded-lg bg-card px-2 py-1.5 ring-1 ring-line"
+                    />
+                  </label>
+                  {pot.kind === "save" && (
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-ink-soft">Saved $</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="decimal"
+                        value={pot.saved}
+                        onChange={(e) =>
+                          setPotsDraft((d) =>
+                            d.map((p) => (p.id === pot.id ? { ...p, saved: Math.max(0, Number(e.target.value) || 0) } : p)),
+                          )
+                        }
+                        aria-label={`Saved so far for pot ${pot.name}`}
+                        className="w-24 rounded-lg bg-card px-2 py-1.5 ring-1 ring-line"
+                      />
+                    </label>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="space-y-2 rounded-2xl bg-bg p-3 ring-1 ring-line">
+          <h3 className="text-sm font-semibold">Add a pot</h3>
+          <div className="flex flex-wrap gap-2">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Pot name, e.g. Coffee"
+              aria-label="New pot name"
+              className="min-w-0 flex-1 rounded-xl bg-card px-3 py-2 text-sm ring-1 ring-line"
+            />
+            <select
+              value={newKind}
+              onChange={(e) => setNewKind(e.target.value as PotKind)}
+              aria-label="New pot type"
+              className="rounded-xl bg-card px-2 py-2 text-sm ring-1 ring-line"
+            >
+              <option value="spend">Spending cap</option>
+              <option value="save">Saving target</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {newKind === "spend" ? (
+              <select
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                aria-label="Category for the new pot"
+                className="rounded-xl bg-card px-2 py-2 text-sm ring-1 ring-line"
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            ) : (
+              <select
+                value={newEmoji}
+                onChange={(e) => setNewEmoji(e.target.value)}
+                aria-label="Emoji for the new pot"
+                className="rounded-xl bg-card px-2 py-2 text-sm ring-1 ring-line"
+              >
+                {SAVE_EMOJIS.map((e) => (
+                  <option key={e} value={e}>
+                    {e}
+                  </option>
+                ))}
+              </select>
+            )}
+            <input
+              type="number"
+              min="1"
+              step="1"
+              inputMode="decimal"
+              value={newAmount}
+              onChange={(e) => setNewAmount(e.target.value)}
+              placeholder={newKind === "spend" ? "Cap ($)" : "Target ($)"}
+              aria-label={newKind === "spend" ? "Cap for the new pot" : "Target for the new pot"}
+              className="w-32 min-w-0 flex-1 rounded-xl bg-card px-3 py-2 text-sm ring-1 ring-line"
+            />
+            <button
+              onClick={addPot}
+              className="shrink-0 rounded-xl bg-accent px-4 py-2 font-semibold text-white active:scale-[0.98]"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        <button
+          onClick={() => void savePots()}
+          className="w-full rounded-2xl bg-accent px-4 py-3 font-semibold text-white active:scale-[0.98]"
+        >
+          Save pots
+        </button>
+        {potsError && <p className="text-sm text-danger">{potsError}</p>}
       </section>
 
       <section className="space-y-4 rounded-3xl bg-card p-5 ring-1 ring-line">
