@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+/* `dark:` follows the app's Appearance setting: Dark always, Light never, and System
+   follows the phone. Tailwind's default only looks at the phone, so with the phone in dark
+   mode and the app set to Light, dark tints were painted on light cards (muddy sage/brown). */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme]), :root:not([data-theme]) *) {
+      @slot;
+    }
+  }
+}
+
 /* Design tokens: Playful Pop — warm peach, chunky cards, coral-pink pops. */
 @theme {
   --color-bg: #fff3e6;
