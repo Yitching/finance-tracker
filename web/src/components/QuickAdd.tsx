@@ -109,8 +109,9 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
         e.preventDefault();
         void submit();
       }}
-      className={`rounded-3xl bg-card p-2 shadow-lg shadow-orange-200/50 ring-1 ring-line focus-within:ring-2 focus-within:ring-pop-1 dark:shadow-none ${day ? "ring-2 ring-accent" : ""}`}
+      className={`rounded-3xl bg-card p-2 shadow-[0_10px_40px_-8px_rgba(255,122,89,0.55)] ring-1 ring-line transition-shadow focus-within:shadow-[0_12px_48px_-6px_rgba(255,92,138,0.6)] focus-within:ring-2 focus-within:ring-pop-1 dark:shadow-[0_10px_40px_-10px_rgba(255,122,89,0.3)] ${day ? "ring-2 ring-accent" : ""}`}
     >
+      {/* The glow is static, so it costs nothing per frame. Keep it. */}
       {/* Backfilling a missed day: everything you log goes on the picked day until you clear it. */}
       <div className="@container flex items-center gap-1 px-1 pb-1">
         <DayPicker
