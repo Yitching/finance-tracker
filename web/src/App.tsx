@@ -24,6 +24,9 @@ import { PotsCard } from "./components/PotsCard";
 import { SafeToSpend } from "./components/SafeToSpend";
 import { PaceChart } from "./components/PaceChart";
 import { SpendingCalendar } from "./components/SpendingCalendar";
+import { BillsRadar } from "./components/BillsRadar";
+import { findRecurring } from "./lib/recurring";
+import { billsOutlook, committedUntil, useBillPrefs } from "./lib/bills";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -115,8 +118,12 @@ function Home() {
     // `expenses` is a dependency so edits and new entries show up here too.
   }, [view, period, previous, getConfirmedRange, expenses]);
 
+  // A year of history: Insights, and the Bills radar that also feeds Home and the calendar.
+  // Loads once at start, then again whenever Insights opens.
+  const yearLoaded = useRef(false);
   useEffect(() => {
-    if (view !== "insights") return;
+    if (view !== "insights" && yearLoaded.current) return;
+    yearLoaded.current = true;
     setInsightsLoading(true);
     const from = new Date(Date.now() - 370 * 86_400_000).toISOString();
     void getConfirmedRange(from).then(setInsightExpenses).catch(() => setInsightExpenses(expenses)).finally(() => setInsightsLoading(false));
@@ -135,6 +142,29 @@ function Home() {
 
   // Home's hero: the period you're in now, from the fast 62-day query.
   const homePeriod = useMemo(() => periodContaining(statementDay), [statementDay]);
+  // Recurring charges from the year of history, with the live 62-day window on top so a bill
+  // you just confirmed (or deleted) counts straight away.
+  const billPrefs = useBillPrefs();
+  const recurring = useMemo(() => {
+    const windowStart = expenses.length ? Math.min(...expenses.map((e) => new Date(e.spent_at).getTime())) : Infinity;
+    const older = insightExpenses.filter((e) => new Date(e.spent_at).getTime() < windowStart);
+    return findRecurring([...older, ...expenses]);
+  }, [insightExpenses, expenses]);
+  const hiddenBills = useMemo(
+    () => recurring.filter((b) => billPrefs.prefs.hidden.includes(b.key)),
+    [recurring, billPrefs.prefs.hidden],
+  );
+  const outlook = useMemo(
+    () => billsOutlook(recurring.filter((b) => !billPrefs.prefs.hidden.includes(b.key))),
+    [recurring, billPrefs.prefs.hidden],
+  );
+  const committed = useMemo(() => committedUntil(outlook.upcoming, homePeriod.to), [outlook, homePeriod]);
+  // Bills on future days of the Spending calendar.
+  const billsDue = useMemo(
+    () => outlook.upcoming.map((d) => ({ date: d.date, name: d.bill.name, amount: d.amount })),
+    [outlook],
+  );
+
   // Spending pots: what each category has used in the period you're in now.
   const homeSpentByCategory = useMemo(() => {
     const from = homePeriod.from.getTime();
@@ -401,6 +431,7 @@ function Home() {
                   expenses={visiblePeriodExpenses}
                   period={period}
                   filtered={hasFilters}
+                  bills={billsDue}
                   onDelete={handleDelete}
                   onUpdate={update}
                 />
@@ -417,7 +448,18 @@ function Home() {
             )}
           </div>
         ) : view === "insights" ? (
-          <div className="flex flex-1 flex-col space-y-5 px-4 pb-24"><ScreenHeader title="Insights" subtitle="Charts and AI patterns" onBack={goHome} /><Insights expenses={expenses} historyExpenses={insightExpenses.length ? insightExpenses : expenses} historyLoading={insightsLoading} /></div>
+          <div className="flex flex-1 flex-col space-y-5 px-4 pb-24"><ScreenHeader title="Insights" subtitle="Charts and AI patterns" onBack={goHome} /><Insights expenses={expenses}>
+              <BillsRadar
+                outlook={outlook}
+                hidden={hiddenBills}
+                seen={billPrefs.prefs.seen}
+                periodEnd={homePeriod.to}
+                loading={insightsLoading}
+                onHide={billPrefs.hide}
+                onUnhide={billPrefs.unhide}
+                onSeen={billPrefs.markSeen}
+              />
+            </Insights></div>
         ) : view === "inbox" ? (
           <Inbox
             pending={pending}
@@ -494,6 +536,7 @@ function Home() {
               period={homePeriod}
               statementDay={statementDay}
               budget={budget}
+              committed={committed}
             />
             <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
               <PotsCard
