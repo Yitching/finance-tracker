@@ -35,6 +35,8 @@ export type Expense = {
   merchant: string | null;
   /** Your own note on it, e.g. "paid for Mei and hubby too". */
   note: string | null;
+  /** Which of your cards paid, picked by hand (a card id from Settings → Cards). */
+  card?: string | null;
   created_at: string;
 };
 
@@ -45,7 +47,7 @@ export type Expense = {
 export type PendingExpense = Omit<Expense, "amount"> & { amount: number | null };
 
 /** What you can change on an expense by editing it. */
-export type ExpensePatch = Partial<Pick<Expense, "item" | "amount" | "category" | "spent_at" | "note">>;
+export type ExpensePatch = Partial<Pick<Expense, "item" | "amount" | "category" | "spent_at" | "note" | "card">>;
 
 export type MerchantRule = {
   merchant_key: string;

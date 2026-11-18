@@ -27,6 +27,8 @@ import { SpendingCalendar } from "./components/SpendingCalendar";
 import { BillsRadar } from "./components/BillsRadar";
 import { findRecurring } from "./lib/recurring";
 import { billsOutlook, committedUntil, useBillPrefs } from "./lib/bills";
+import { CardsContext, useCardSettings } from "./lib/cards";
+import { CardRewards } from "./components/CardRewards";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -42,7 +44,7 @@ export default function App() {
 }
 
 type Toast = { text: string; undo?: () => void };
-type View = "home" | "spending" | "insights" | "inbox" | "settings";
+type View = "home" | "spending" | "insights" | "inbox" | "settings" | "cards";
 
 function Home() {
   const {
@@ -72,6 +74,7 @@ function Home() {
   const [monthlyBudget, setMonthlyBudget] = useMonthlyBudget();
   const budget = monthlyBudget ?? DEFAULT_BUDGET;
   const [pots, setPots, addToPot] = usePots();
+  const [cardSettings, setCardSettings] = useCardSettings();
   // The Spending screen's period ("YYYY-MM"); null = the one you're in now.
   const [periodKey, setPeriodKey] = useState<string | null>(null);
   const period = useMemo(
@@ -164,6 +167,15 @@ function Home() {
     () => outlook.upcoming.map((d) => ({ date: d.date, name: d.bill.name, amount: d.amount })),
     [outlook],
   );
+
+  const homeExpenses = useMemo(() => {
+    const from = homePeriod.from.getTime();
+    const to = homePeriod.to.getTime();
+    return expenses.filter((e) => {
+      const t = new Date(e.spent_at).getTime();
+      return t >= from && t < to;
+    });
+  }, [expenses, homePeriod]);
 
   // Spending pots: what each category has used in the period you're in now.
   const homeSpentByCategory = useMemo(() => {
@@ -377,6 +389,7 @@ function Home() {
 
   if (view !== "home") {
     return (
+      <CardsContext.Provider value={cardSettings.cards}>
       <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
         {view === "spending" ? (
           <div className="flex flex-1 flex-col space-y-5 px-4 pb-24">
@@ -460,6 +473,17 @@ function Home() {
                 onSeen={billPrefs.markSeen}
               />
             </Insights></div>
+        ) : view === "cards" ? (
+          <div className="flex flex-1 flex-col space-y-5 px-4 pb-24">
+            <ScreenHeader title="Cards" subtitle="Which card to use, and what you've earned" onBack={goHome} />
+            <CardRewards
+              settings={cardSettings}
+              expenses={homeExpenses}
+              period={homePeriod}
+              statementDay={statementDay}
+              onManage={() => open("settings")}
+            />
+          </div>
         ) : view === "inbox" ? (
           <Inbox
             pending={pending}
@@ -479,6 +503,8 @@ function Home() {
             onMonthlyBudgetChange={(b) => setMonthlyBudget(b)}
             pots={pots}
             onPotsChange={(p) => setPots(p)}
+            cardSettings={cardSettings}
+            onCardSettingsChange={setCardSettings}
             onStatementDayChange={(d) => {
               setPeriodKey(null);
               return setStatementDay(d);
@@ -491,10 +517,12 @@ function Home() {
           </div>
         )}
       </div>
+      </CardsContext.Provider>
     );
   }
 
   return (
+    <CardsContext.Provider value={cardSettings.cards}>
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
       <header className="@container flex items-center justify-between gap-3 px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
         <div className="min-w-0">
@@ -515,6 +543,13 @@ function Home() {
               </>
             )}
           </span>
+          <button
+            onClick={() => open("cards")}
+            aria-label="Cards: which card to use"
+            className="grid size-10 place-items-center rounded-full bg-card text-xl shadow-sm ring-1 ring-line transition active:scale-95"
+          >
+            💳
+          </button>
           <button
             onClick={() => open("settings")}
             aria-label="Settings"
@@ -585,5 +620,6 @@ function Home() {
         </div>
       </div>
     </div>
+    </CardsContext.Provider>
   );
 }
