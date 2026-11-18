@@ -65,6 +65,78 @@
   }
 }
 
+/* Category colours (Settings → Category colours). Each palette colour has a chip pastel
+   (lighter in light mode, stronger in dark so it doesn't go muddy) and a bar colour.
+   Categories point at a palette colour; src/lib/categoryStyle.ts repoints them on <html>. */
+:root {
+  --pal-amber-chip: #fef3c7;
+  --pal-amber-bar: #fbbf24;
+  --pal-orange-chip: #ffedd5;
+  --pal-orange-bar: #fb923c;
+  --pal-rose-chip: #ffe4e6;
+  --pal-rose-bar: #fb7185;
+  --pal-pink-chip: #fce7f3;
+  --pal-pink-bar: #f472b6;
+  --pal-purple-chip: #f3e8ff;
+  --pal-purple-bar: #c084fc;
+  --pal-violet-chip: #ede9fe;
+  --pal-violet-bar: #a78bfa;
+  --pal-sky-chip: #e0f2fe;
+  --pal-sky-bar: #38bdf8;
+  --pal-teal-chip: #ccfbf1;
+  --pal-teal-bar: #2dd4bf;
+  --pal-emerald-chip: #d1fae5;
+  --pal-emerald-bar: #34d399;
+  --pal-lime-chip: #ecfccb;
+  --pal-lime-bar: #a3e635;
+  --pal-stone-chip: #e7e5e4;
+  --pal-stone-bar: #a8a29e;
+  --cat-food-chip: var(--pal-amber-chip);
+  --cat-food-bar: var(--pal-amber-bar);
+  --cat-transport-chip: var(--pal-sky-chip);
+  --cat-transport-bar: var(--pal-sky-bar);
+  --cat-groceries-chip: var(--pal-lime-chip);
+  --cat-groceries-bar: var(--pal-lime-bar);
+  --cat-shopping-chip: var(--pal-pink-chip);
+  --cat-shopping-bar: var(--pal-pink-bar);
+  --cat-bills-chip: var(--pal-violet-chip);
+  --cat-bills-bar: var(--pal-violet-bar);
+  --cat-entertainment-chip: var(--pal-orange-chip);
+  --cat-entertainment-bar: var(--pal-orange-bar);
+  --cat-health-chip: var(--pal-emerald-chip);
+  --cat-health-bar: var(--pal-emerald-bar);
+  --cat-others-chip: var(--pal-stone-chip);
+  --cat-others-bar: var(--pal-stone-bar);
+}
+:root[data-theme="dark"] {
+  --pal-amber-chip: #fcd34d;
+  --pal-orange-chip: #fdba74;
+  --pal-rose-chip: #fda4af;
+  --pal-pink-chip: #f9a8d4;
+  --pal-purple-chip: #d8b4fe;
+  --pal-violet-chip: #c4b5fd;
+  --pal-sky-chip: #7dd3fc;
+  --pal-teal-chip: #5eead4;
+  --pal-emerald-chip: #6ee7b7;
+  --pal-lime-chip: #bef264;
+  --pal-stone-chip: #d6d3d1;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --pal-amber-chip: #fcd34d;
+    --pal-orange-chip: #fdba74;
+    --pal-rose-chip: #fda4af;
+    --pal-pink-chip: #f9a8d4;
+    --pal-purple-chip: #d8b4fe;
+    --pal-violet-chip: #c4b5fd;
+    --pal-sky-chip: #7dd3fc;
+    --pal-teal-chip: #5eead4;
+    --pal-emerald-chip: #6ee7b7;
+    --pal-lime-chip: #bef264;
+    --pal-stone-chip: #d6d3d1;
+  }
+}
+
 /* Text on a pastel tile stays dark in dark mode too (the tile stays pastel). */
 :root[data-theme="dark"] .on-pastel {
   color: #231a12;
