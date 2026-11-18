@@ -542,6 +542,7 @@ function Home() {
               <PotsCard
                 pots={pots}
                 spentByCategory={homeSpentByCategory}
+                budget={budget}
                 onAddToPot={(id, amount) => void addToPot(id, amount)}
                 onManage={() => open("settings")}
               />
