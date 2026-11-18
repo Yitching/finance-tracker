@@ -6,6 +6,10 @@
  * Statement dates past the end of a short month land on its last day (31st → 30 Apr).
  *
  * All boundaries are local midnights, so an expense at 2am SGT on the 1st stays on the 1st.
+ *
+ * A statement that arrives early can end its period early ("Statement's out"): `ends`
+ * maps that period's key to the day the next one starts ("YYYY-MM-DD"). The next period
+ * keeps its own name and normal end date, and simply starts on that day.
  */
 
 /** "YYYY-MM": the calendar month, or the month the statement is issued in. */
@@ -17,6 +21,16 @@ export type Period = {
   from: Date;
   /** First moment after the period (exclusive). */
   to: Date;
+  /** You ended it early when the statement came out. */
+  endedEarly?: boolean;
+};
+
+/** Period key → the day the next period starts ("YYYY-MM-DD"), for periods ended early. */
+export type PeriodEnds = Record<PeriodKey, string>;
+
+const dayStart = (value: string) => {
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, m - 1, d);
 };
 
 const daysIn = (year: number, month0: number) => new Date(year, month0 + 1, 0).getDate();
@@ -38,8 +52,7 @@ function afterStatement(year: number, month0: number, statementDay: number) {
   return new Date(d.getFullYear(), d.getMonth(), day + 1);
 }
 
-/** `statementDay` null = calendar months. */
-export function periodFor(key: PeriodKey, statementDay: number | null): Period {
+function basePeriod(key: PeriodKey, statementDay: number | null): Period {
   const { year, month0 } = parseKey(key);
   if (!statementDay) {
     return { key, from: new Date(year, month0, 1), to: new Date(year, month0 + 1, 1) };
@@ -51,17 +64,31 @@ export function periodFor(key: PeriodKey, statementDay: number | null): Period {
   };
 }
 
-/** The period that contains `at` (default: now). */
-export function periodContaining(statementDay: number | null, at = new Date()): Period {
-  const here = periodFor(keyOf(at.getFullYear(), at.getMonth()), statementDay);
-  if (at < here.from) return periodFor(keyOf(at.getFullYear(), at.getMonth() - 1), statementDay);
-  if (at >= here.to) return periodFor(keyOf(at.getFullYear(), at.getMonth() + 1), statementDay);
-  return here;
+/** `statementDay` null = calendar months. `ends` = periods you ended early. */
+export function periodFor(key: PeriodKey, statementDay: number | null, ends: PeriodEnds = {}): Period {
+  const base = basePeriod(key, statementDay);
+  const { year, month0 } = parseKey(key);
+  const prevKey = keyOf(year, month0 - 1);
+  // An end only counts if it still leaves the period at least a day long.
+  const startEarly = ends[prevKey] ? dayStart(ends[prevKey]) : null;
+  const from = startEarly && startEarly < base.to ? startEarly : base.from;
+  const endEarly = ends[key] ? dayStart(ends[key]) : null;
+  const ended = !!endEarly && endEarly > from;
+  return { key, from, to: ended ? endEarly : base.to, ...(ended ? { endedEarly: true } : {}) };
 }
 
-export function shiftPeriod(key: PeriodKey, by: number, statementDay: number | null): Period {
+/** The period that contains `at` (default: now). */
+export function periodContaining(statementDay: number | null, ends: PeriodEnds = {}, at = new Date()): Period {
+  let p = periodFor(keyOf(at.getFullYear(), at.getMonth()), statementDay, ends);
+  // Early ends move boundaries by days, so a step or two always lands in the right one.
+  for (let i = 0; i < 3 && at < p.from; i++) p = shiftPeriod(p.key, -1, statementDay, ends);
+  for (let i = 0; i < 3 && at >= p.to; i++) p = shiftPeriod(p.key, 1, statementDay, ends);
+  return p;
+}
+
+export function shiftPeriod(key: PeriodKey, by: number, statementDay: number | null, ends: PeriodEnds = {}): Period {
   const { year, month0 } = parseKey(key);
-  return periodFor(keyOf(year, month0 + by), statementDay);
+  return periodFor(keyOf(year, month0 + by), statementDay, ends);
 }
 
 const short = (d: Date) => d.toLocaleDateString("en-SG", { day: "numeric", month: "short" });

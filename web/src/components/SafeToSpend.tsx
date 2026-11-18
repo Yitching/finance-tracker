@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { money, moneyWhole } from "../lib/money";
 import { periodTitle, type Period } from "../lib/period";
 import { safeToSpend, tomorrowAllowance } from "../lib/safeToSpend";
@@ -16,12 +16,15 @@ export function SafeToSpend({
   statementDay,
   budget,
   committed = 0,
+  statementOut,
 }: {
   expenses: Expense[];
   period: Period;
   statementDay: number | null;
   budget: number;
   committed?: number;
+  /** "Statement's out" control, shown in the last week of a billing cycle. */
+  statementOut?: ReactNode;
 }) {
   const s = useMemo(() => safeToSpend(expenses, period, budget, committed), [expenses, period, budget, committed]);
   const [whatIfOpen, setWhatIfOpen] = useState(false);
@@ -110,6 +113,7 @@ export function SafeToSpend({
           )}
         </div>
       )}
+      {statementOut && s.daysLeft <= 7 && <div className="mt-3">{statementOut}</div>}
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import {
   CAPTURE_URL,
@@ -13,7 +13,7 @@ import { gmailScript } from "../lib/gmailScript";
 import { isInstalledApp, useFrameRate } from "../lib/frameRate";
 import { dayLabel, money, timeLabel } from "../lib/money";
 import { applyTheme, savedTheme, type Theme } from "../lib/theme";
-import { periodContaining, periodRange, periodTitle } from "../lib/period";
+import { periodContaining, periodRange, periodTitle, shiftPeriod, type PeriodEnds } from "../lib/period";
 import { DEFAULT_BUDGET } from "../lib/settings";
 import { emojiForCategory, SAVE_EMOJIS, type Pot, type PotKind } from "../lib/pots";
 import type { CardSettings } from "../lib/cards";
@@ -54,6 +54,9 @@ export function Settings({
   onBack,
   onCaptured,
   statementDay,
+  periodEnds,
+  onPeriodEndsChange,
+  statementOut,
   monthlyBudget,
   onMonthlyBudgetChange,
   onStatementDayChange,
@@ -65,6 +68,10 @@ export function Settings({
   onBack: () => void;
   onCaptured: () => void;
   statementDay: number | null;
+  periodEnds: PeriodEnds;
+  onPeriodEndsChange: (ends: PeriodEnds) => Promise<void>;
+  /** "Statement's out? Start a new budget", from App. */
+  statementOut: ReactNode;
   monthlyBudget: number | null;
   onMonthlyBudgetChange: (budget: number | null) => Promise<void>;
   onStatementDayChange: (day: number | null) => Promise<void>;
@@ -144,7 +151,9 @@ export function Settings({
       setPotsError("Couldn't save that. Has the latest database migration been pushed?");
     }
   }
-  const current = periodContaining(statementDay);
+  const current = periodContaining(statementDay, periodEnds);
+  // The period before this one, if you ended it early: offer to undo.
+  const endedEarly = shiftPeriod(current.key, -1, statementDay, periodEnds);
 
   async function changeMonthlyBudget() {
     setBudgetError(null);
@@ -357,6 +366,32 @@ export function Settings({
           Find the statement date on your card bill or in the UOB app. A cycle is named after the month its statement
           comes out, so with the 14th, the “Nov bill” covers 15 Oct – 14 Nov.
         </p>
+        {statementDay && (
+          <div className="space-y-2 rounded-xl bg-bg px-3 py-3 text-sm">
+            <p className="text-ink-soft">
+              Statement came early? Start the next budget now. If yours moves around, set the statement day to the
+              latest it usually arrives and use this when it comes sooner.
+            </p>
+            {statementOut}
+            {endedEarly.endedEarly && (
+              <p className="flex items-center gap-2 text-ink-soft">
+                <span className="min-w-0 flex-1">
+                  {periodTitle(endedEarly, statementDay)} ended early, on{" "}
+                  {current.from.toLocaleDateString("en-SG", { day: "numeric", month: "short" })}.
+                </span>
+                <button
+                  onClick={() => {
+                    const { [endedEarly.key]: _undone, ...rest } = periodEnds;
+                    void onPeriodEndsChange(rest).catch(() => setCycleError("Couldn't undo that. Try again?"));
+                  }}
+                  className="shrink-0 font-bold text-accent"
+                >
+                  Undo
+                </button>
+              </p>
+            )}
+          </div>
+        )}
         {cycleError && <p className="text-sm text-danger">{cycleError}</p>}
       </section>
 

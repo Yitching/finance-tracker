@@ -34,19 +34,38 @@ function afterStatement(year: number, month0: number, statementDay: number) {
   return midnight(y, m, Math.min(statementDay, daysIn(y, m)) + 1);
 }
 
-function periodFor(year: number, month0: number, statementDay: number | null): Period {
+/** Periods ended early ("Statement's out"): period key → day the next one starts, "YYYY-MM-DD". */
+type PeriodEnds = Record<string, string>;
+const dayStart = (value: string) => {
+  const [y, m, d] = value.split("-").map(Number);
+  return midnight(y, m - 1, d);
+};
+
+function basePeriod(year: number, month0: number, statementDay: number | null): Period {
   const key = keyOf(year, month0);
   if (!statementDay) return { key, from: midnight(year, month0, 1), to: midnight(year, month0 + 1, 1) };
   return { key, from: afterStatement(year, month0 - 1, statementDay), to: afterStatement(year, month0, statementDay) };
 }
 
-export function currentAndPrevious(statementDay: number | null, now: number) {
+function periodFor(year: number, month0: number, statementDay: number | null, ends: PeriodEnds): Period {
+  const base = basePeriod(year, month0, statementDay);
+  const prevKey = keyOf(year, month0 - 1);
+  const startEarly = ends[prevKey] ? dayStart(ends[prevKey]) : null;
+  const from = startEarly !== null && startEarly < base.to ? startEarly : base.from;
+  const endEarly = ends[base.key] ? dayStart(ends[base.key]) : null;
+  return { key: base.key, from, to: endEarly !== null && endEarly > from ? endEarly : base.to };
+}
+
+export function currentAndPrevious(statementDay: number | null, now: number, ends: PeriodEnds = {}) {
   const { year, month0 } = sgt(now);
+  // Early ends move boundaries by days, so a step or two always lands in the right one.
   let offset = 0;
-  const here = periodFor(year, month0, statementDay);
-  if (now < here.from) offset = -1;
-  else if (now >= here.to) offset = 1;
-  return { current: periodFor(year, month0 + offset, statementDay), previous: periodFor(year, month0 + offset - 1, statementDay) };
+  for (let i = 0; i < 3 && now < periodFor(year, month0 + offset, statementDay, ends).from; i++) offset--;
+  for (let i = 0; i < 3 && now >= periodFor(year, month0 + offset, statementDay, ends).to; i++) offset++;
+  return {
+    current: periodFor(year, month0 + offset, statementDay, ends),
+    previous: periodFor(year, month0 + offset - 1, statementDay, ends),
+  };
 }
 
 // ── Facts ──────────────────────────────────────────────────────────────────────
@@ -195,10 +214,14 @@ Deno.serve(async (req) => {
   if (!userData.user) return json({ error: "Not signed in" }, 401);
   const { refresh = false } = await req.json().catch(() => ({}));
 
-  const { data: settings } = await supabase.from("user_settings").select("statement_day").maybeSingle();
+  const { data: settings } = await supabase.from("user_settings").select("statement_day, period_ends").maybeSingle();
   const statementDay: number | null = settings?.statement_day ?? null;
+  const ends: PeriodEnds = {};
+  for (const [k, v] of Object.entries((settings?.period_ends ?? {}) as Record<string, unknown>)) {
+    if (/^\d{4}-\d{2}$/.test(k) && typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) ends[k] = v;
+  }
   const now = Date.now();
-  const { current, previous } = currentAndPrevious(statementDay, now);
+  const { current, previous } = currentAndPrevious(statementDay, now, ends);
 
   const { data, error } = await supabase
     .from("expenses")

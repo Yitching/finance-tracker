@@ -4,7 +4,7 @@ import { supabase } from "./lib/supabase";
 import { useLedger } from "./lib/useLedger";
 import { findDuplicates } from "./lib/duplicates";
 import { shrinkPhoto } from "./lib/image";
-import { dayLabel, money, onDay, startOfDay, startOfWeek } from "./lib/money";
+import { dateValue, dayLabel, money, onDay, startOfDay, startOfWeek } from "./lib/money";
 import { CATEGORIES, type Expense, type PendingExpense, type Remembered } from "./lib/types";
 import { Login } from "./components/Login";
 import { QuickAdd } from "./components/QuickAdd";
@@ -17,7 +17,8 @@ import { Settings } from "./components/Settings";
 import { ScreenHeader } from "./components/ScreenHeader";
 import { Insights } from "./components/Insights";
 import { periodContaining, periodFor, periodRange, periodTitle, shiftPeriod } from "./lib/period";
-import { DEFAULT_BUDGET, useMonthlyBudget, useStatementDay } from "./lib/settings";
+import { DEFAULT_BUDGET, useMonthlyBudget, usePeriodEnds, useStatementDay } from "./lib/settings";
+import { StatementOut } from "./components/StatementOut";
 import { usePots } from "./lib/pots";
 import { BudgetCard } from "./components/BudgetCard";
 import { PotsCard } from "./components/PotsCard";
@@ -71,6 +72,7 @@ function Home() {
   // The day new entries go on ("YYYY-MM-DD"); null = today. Stays until you clear it, for backfilling.
   const [day, setDay] = useState<string | null>(null);
   const [statementDay, setStatementDay] = useStatementDay();
+  const [periodEnds, setPeriodEnds] = usePeriodEnds();
   const [monthlyBudget, setMonthlyBudget] = useMonthlyBudget();
   const budget = monthlyBudget ?? DEFAULT_BUDGET;
   const [pots, setPots, addToPot] = usePots();
@@ -78,11 +80,14 @@ function Home() {
   // The Spending screen's period ("YYYY-MM"); null = the one you're in now.
   const [periodKey, setPeriodKey] = useState<string | null>(null);
   const period = useMemo(
-    () => (periodKey ? periodFor(periodKey, statementDay) : periodContaining(statementDay)),
-    [periodKey, statementDay],
+    () => (periodKey ? periodFor(periodKey, statementDay, periodEnds) : periodContaining(statementDay, periodEnds)),
+    [periodKey, statementDay, periodEnds],
   );
-  const previous = useMemo(() => shiftPeriod(period.key, -1, statementDay), [period, statementDay]);
-  const isCurrent = period.key === periodContaining(statementDay).key;
+  const previous = useMemo(
+    () => shiftPeriod(period.key, -1, statementDay, periodEnds),
+    [period, statementDay, periodEnds],
+  );
+  const isCurrent = period.key === periodContaining(statementDay, periodEnds).key;
   // Covers this period and the one before, for the comparison.
   const [historyExpenses, setHistoryExpenses] = useState<Expense[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -144,7 +149,25 @@ function Home() {
   const periodTotal = useMemo(() => periodExpenses.reduce((s, e) => s + e.amount, 0), [periodExpenses]);
 
   // Home's hero: the period you're in now, from the fast 62-day query.
-  const homePeriod = useMemo(() => periodContaining(statementDay), [statementDay]);
+  const homePeriod = useMemo(() => periodContaining(statementDay, periodEnds), [statementDay, periodEnds]);
+  const homeNext = useMemo(() => shiftPeriod(homePeriod.key, 1, statementDay, periodEnds), [homePeriod, statementDay, periodEnds]);
+
+  // "Statement's out": end the current period today; the next one starts now.
+  async function endPeriodEarly() {
+    const before = periodEnds;
+    const ended = homePeriod;
+    try {
+      await setPeriodEnds({ ...before, [ended.key]: dateValue() });
+    } catch {
+      showToast({ text: "Couldn't start a new budget. Has the latest database migration been pushed?" });
+      return;
+    }
+    setPeriodKey(null);
+    showToast({
+      text: `New budget started · ${periodTitle(homeNext, statementDay)}`,
+      undo: () => void setPeriodEnds(before).catch(() => showToast({ text: "Couldn't undo that" })),
+    });
+  }
   // Recurring charges from the year of history, with the live 62-day window on top so a bill
   // you just confirmed (or deleted) counts straight away.
   const billPrefs = useBillPrefs();
@@ -407,7 +430,7 @@ function Home() {
                 <div className="text-xs text-ink-soft">{periodRange(period)}</div>
               </div>
               <button
-                onClick={() => setPeriodKey(shiftPeriod(period.key, 1, statementDay).key)}
+                onClick={() => setPeriodKey(shiftPeriod(period.key, 1, statementDay, periodEnds).key)}
                 disabled={isCurrent}
                 aria-label="Next period"
                 className="grid size-10 shrink-0 place-items-center rounded-xl text-2xl leading-none active:bg-bg disabled:opacity-25"
@@ -428,6 +451,11 @@ function Home() {
               <button onClick={() => void exportCsv(false)} className="bg-pop-gradient rounded-full px-4 py-2 text-sm font-bold text-white shadow-md shadow-pink-200/70 transition active:scale-95 dark:shadow-none">Export</button>
               <button onClick={() => void exportCsv(true)} className="rounded-full bg-card px-4 py-2 text-sm font-bold ring-1 ring-line transition active:scale-95">All</button>
             </div>
+            {isCurrent && statementDay && (
+              <div className="px-1">
+                <StatementOut current={homePeriod} next={homeNext} statementDay={statementDay} onConfirm={endPeriodEarly} />
+              </div>
+            )}
             <section className="@container rounded-3xl bg-card p-3 shadow-sm ring-1 ring-line"><div className="flex items-center gap-2"><input value={filters.text} onChange={(e) => setFilters((f) => ({ ...f, text: e.target.value }))} placeholder="Search expenses" aria-label="Search expenses" className="min-w-0 flex-1 rounded-xl bg-bg px-3 py-2 text-sm outline-none ring-1 ring-line focus:ring-accent" />{hasFilters && <button onClick={() => setFilters({ text: "", category: "", source: "", minAmount: "", maxAmount: "", from: "", to: "" })} className="shrink-0 px-1 text-xs font-medium text-accent">Clear</button>}</div><div className="mt-2 grid grid-cols-1 gap-2 @min-[17rem]:grid-cols-2"><select value={filters.category} onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))} aria-label="Filter by category" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All categories</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select><select value={filters.source} onChange={(e) => setFilters((f) => ({ ...f, source: e.target.value }))} aria-label="Filter by source" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line"><option value="">All sources</option>{sources.map((s) => <option key={s}>{s}</option>)}</select><input type="number" min="0" step="0.01" value={filters.minAmount} onChange={(e) => setFilters((f) => ({ ...f, minAmount: e.target.value }))} placeholder="Min amount" aria-label="Minimum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="number" min="0" step="0.01" value={filters.maxAmount} onChange={(e) => setFilters((f) => ({ ...f, maxAmount: e.target.value }))} placeholder="Max amount" aria-label="Maximum amount" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.from} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} aria-label="Filter from date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /><input type="date" value={filters.to} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} aria-label="Filter to date" className="rounded-xl bg-bg px-2 py-2 text-sm ring-1 ring-line" /></div>{hasFilters && <p className="mt-2 text-xs text-ink-faint">Showing {filteredHistory.length} matching confirmed expenses</p>}</section>
             {historyLoading && !historyExpenses.length ? (
               <div className="h-32 animate-pulse rounded-3xl bg-card" />
@@ -499,6 +527,13 @@ function Home() {
             onBack={goHome}
             onCaptured={() => void refresh()}
             statementDay={statementDay}
+            periodEnds={periodEnds}
+            onPeriodEndsChange={setPeriodEnds}
+            statementOut={
+              statementDay ? (
+                <StatementOut current={homePeriod} next={homeNext} statementDay={statementDay} onConfirm={endPeriodEarly} />
+              ) : null
+            }
             monthlyBudget={monthlyBudget}
             onMonthlyBudgetChange={(b) => setMonthlyBudget(b)}
             pots={pots}
@@ -572,6 +607,17 @@ function Home() {
               statementDay={statementDay}
               budget={budget}
               committed={committed}
+              statementOut={
+                statementDay ? (
+                  <StatementOut
+                    tone="pop"
+                    current={homePeriod}
+                    next={homeNext}
+                    statementDay={statementDay}
+                    onConfirm={endPeriodEarly}
+                  />
+                ) : null
+              }
             />
             <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
               <PotsCard
