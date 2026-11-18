@@ -2,6 +2,11 @@ const fmt = new Intl.NumberFormat("en-SG", { style: "currency", currency: "SGD" 
 
 export const money = (n: number) => fmt.format(n);
 
+const fmtWhole = new Intl.NumberFormat("en-SG", { style: "currency", currency: "SGD", maximumFractionDigits: 0 });
+
+/** Whole dollars, for big round figures where cents are noise: "$1,152". */
+export const moneyWhole = (n: number) => fmtWhole.format(n);
+
 export const startOfDay = (d = new Date()) => {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);

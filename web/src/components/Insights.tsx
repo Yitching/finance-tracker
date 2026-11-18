@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import { money, startOfDay } from "../lib/money";
 import { periodRange } from "../lib/period";
 import { CATEGORY_EMOJI, type Expense } from "../lib/types";
 import { categoryBar, categoryChip } from "../lib/categoryStyle";
-import { findRecurring, type RecurringCandidate } from "../lib/recurring";
 
 type InsightResponse = {
   period: { key: string; from: string; to: string; daysElapsed: number; daysTotal: number; ongoing: boolean };
@@ -28,9 +27,9 @@ function LocalAnalytics({ expenses }: { expenses: Expense[] }) {
   return <><section className="grid grid-cols-2 gap-3"><div className="rounded-3xl bg-lime-200/70 p-4 ring-1 ring-line dark:bg-lime-900/40"><div className="text-xs font-semibold text-ink-soft">Tracked total</div><div className="mt-1 text-2xl font-extrabold tabular-nums">{money(total)}</div></div><div className="rounded-3xl bg-amber-100 p-4 ring-1 ring-line dark:bg-amber-900/40"><div className="text-xs font-semibold text-ink-soft">Average active day</div><div className="mt-1 text-2xl font-extrabold tabular-nums">{money(average)}</div></div></section><section className="rounded-3xl bg-card p-5 shadow-sm ring-1 ring-line"><h2 className="font-bold">Last 14 days</h2><div className="@container mt-5 flex h-36 items-end gap-1" aria-label="Spending over the last 14 days">{days.map((d, i) => <div key={`${d.label}-${i}`} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-1"><div className="bg-pop-gradient rounded-t-lg" style={{ height: `${Math.max(d.amount ? 8 : 2, (d.amount / max) * 112)}px` }} title={`${d.label}: ${money(d.amount)}`} /><span className="overflow-hidden text-center text-[10px] text-ink-faint"><span className="@max-[14rem]:hidden">{d.label.slice(0, 2)}</span><span className="hidden @max-[14rem]:inline">{d.label.slice(0, 1)}</span></span></div>)}</div></section><section className="rounded-3xl bg-card p-5 shadow-sm ring-1 ring-line"><h2 className="font-bold">Top categories</h2><div className="mt-4 space-y-3">{topCategories.length ? topCategories.map(([category, amount]) => <div key={category}><div className="flex items-center justify-between text-sm"><span className="flex items-center gap-2 font-medium"><span className={`grid size-8 place-items-center rounded-xl ${categoryChip(category)}`}>{CATEGORY_EMOJI[category] ?? "📦"}</span>{category}</span><span className="tabular-nums text-ink-soft">{money(amount)}</span></div><div className="mt-1 h-2.5 rounded-full bg-bg"><div className={`h-full rounded-full ${categoryBar(category)}`} style={{ width: `${(amount / topCategories[0][1]) * 100}%` }} /></div></div>) : <p className="text-sm text-ink-soft">Add a few confirmed expenses to see patterns.</p>}</div></section></>;
 }
 
-export function Insights({ expenses, historyExpenses = expenses, historyLoading = false }: { expenses: Expense[]; historyExpenses?: Expense[]; historyLoading?: boolean }) {
-  const recurring = useMemo(() => findRecurring(historyExpenses), [historyExpenses]);
-  return <div className="space-y-5"><InsightCard /><LocalAnalytics expenses={expenses} /><RecurringSection candidates={recurring} loading={historyLoading} /></div>;
+/** `children` goes last: the Bills radar, which App builds from a longer history. */
+export function Insights({ expenses, children }: { expenses: Expense[]; children?: ReactNode }) {
+  return <div className="space-y-5"><InsightCard /><LocalAnalytics expenses={expenses} />{children}</div>;
 }
 
 const TONE = { up: { mark: "▲", className: "text-danger" }, down: { mark: "▼", className: "text-accent" }, neutral: { mark: "•", className: "text-ink-faint" } };
@@ -52,8 +51,4 @@ function InsightCard() {
       {result.tip && <p className="rounded-2xl bg-amber-100 p-3 text-sm dark:bg-amber-900/40"><span className="font-semibold">Try: </span>{result.tip}</p>}
     </div>}
   </section>;
-}
-
-function RecurringSection({ candidates, loading }: { candidates: RecurringCandidate[]; loading: boolean }) {
-  return <section className="rounded-3xl bg-card p-5 shadow-sm ring-1 ring-line"><h2 className="font-bold">Likely recurring</h2><p className="mt-1 text-sm text-ink-soft">Confirmed charges with repeated timing and similar amounts. Nothing is scheduled or charged automatically.</p>{loading ? <div className="mt-4 h-16 animate-pulse rounded-2xl bg-bg" /> : candidates.length ? <ul className="mt-4 divide-y divide-line">{candidates.map((c) => <li key={`${c.name}-${c.nextDate}`} className="py-3 first:pt-0 last:pb-0"><div className="flex items-start gap-3"><div className="min-w-0 flex-1"><div className="truncate font-medium">{c.name}</div><div className="mt-0.5 text-sm text-ink-soft">{c.cadence} · {c.occurrences} confirmed charges</div><div className="text-xs text-ink-faint">Next expected {new Date(c.nextDate).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" })}</div></div><div className="shrink-0 text-right font-semibold tabular-nums">{money(c.typicalAmount)}<div className="text-xs font-normal text-ink-faint">typical</div></div></div></li>)}</ul> : <p className="mt-4 text-sm text-ink-soft">Not enough consistent history yet. Three or more similar confirmed charges are needed.</p>}</section>;
 }
