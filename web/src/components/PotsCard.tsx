@@ -5,7 +5,9 @@ import { categoryBar } from "../lib/categoryStyle";
 /**
  * Pots on Home, as jars: mini-budgets inside the monthly cap.
  * A spending jar holds what's left in its category this period and drains as you
- * log; it turns amber near the bottom and pink once it's empty. A saving jar fills
+ * log; it turns amber near the bottom and pink once it's empty. Go over and it
+ * overflows: brim-full of pink, lid popped, drips down the sides and a puddle that
+ * spreads the further over you are. A saving jar fills
  * as you top it up, and turns green when it hits the target.
  * The liquid level is the money, so nobody has to read a percentage.
  */
@@ -82,6 +84,10 @@ function Jar({ pot, spent, onAdd }: { pot: Pot; spent: number; onAdd: (amount: n
         : low
           ? `${moneyWhole(left)} left!`
           : `${moneyWhole(left)} left`;
+  // Over budget: the jar is brim-full and spilling; the puddle grows with how far over.
+  const fill = over ? 1 : Math.min(1, level);
+  const shownPct = over ? Math.round((spent / pot.amount) * 100) : Math.round(fill * 100);
+  const spread = over ? 4 + Math.min(1, -left / pot.amount) * 12 : 0;
   const label = save
     ? `${pot.name}: ${money(pot.saved)} saved of ${money(pot.amount)}`
     : `${pot.name}: ${money(Math.max(0, left))} left of ${money(pot.amount)}${over ? `, over by ${money(-left)}` : ""}`;
@@ -89,17 +95,20 @@ function Jar({ pot, spent, onAdd }: { pot: Pot; spent: number; onAdd: (amount: n
   return (
     <li className="flex min-w-0 flex-col items-center text-center" aria-label={label}>
       <div className={`relative w-full max-w-[5.5rem] ${over ? "jar-shake" : ""}`} aria-hidden>
-        {/* Lid */}
-        <div className="mx-auto h-2.5 w-3/5 rounded-t-md rounded-b-sm bg-ink-faint/60" />
+        {/* Lid, knocked off when the jar overflows */}
+        <div
+          className={`mx-auto h-2.5 w-3/5 rounded-t-md rounded-b-sm bg-ink-faint/60 ${over ? "jar-lid-off" : ""}`}
+        />
+        <div className="relative mt-0.5">
         {/* Glass */}
-        <div className={`relative mt-0.5 h-28 overflow-hidden rounded-t-xl rounded-b-[1.6rem] ring-2 ring-inset ${over ? "bg-pink-50 ring-pink-400 dark:bg-pink-950/40" : "bg-bg ring-ink-faint/50"}`}>
+        <div className="relative h-28 overflow-hidden rounded-t-xl rounded-b-[1.6rem] bg-bg">
           {/* Liquid; re-keyed on the amount so it sloshes when you log something */}
           <div
             key={save ? pot.saved : spent}
             className="jar-slosh absolute inset-x-0 bottom-0"
-            style={{ height: `${Math.min(1, level) * 100}%`, transition: "height 0.7s cubic-bezier(0.22, 1, 0.36, 1)" }}
+            style={{ height: `${fill * 100}%`, transition: "height 0.7s cubic-bezier(0.22, 1, 0.36, 1)" }}
           >
-            {level > 0 && (
+            {fill > 0 && !over && (
               <div className="absolute -top-2 left-0 h-2.5 w-[200%] overflow-hidden">
                 <div className={`jar-wave h-full w-full ${liquid}`} />
               </div>
@@ -110,15 +119,48 @@ function Jar({ pot, spent, onAdd }: { pot: Pot; spent: number; onAdd: (amount: n
           <div className="absolute top-3 left-2 h-12 w-1.5 rounded-full bg-white/50" />
           <div
             className={`absolute inset-x-0 bottom-2 text-sm font-extrabold tabular-nums ${
-              level > 0.25 ? "text-white drop-shadow-sm" : "text-ink"
+              fill > 0.25 ? "text-white drop-shadow-sm" : "text-ink"
             }`}
           >
-            {Math.round(Math.min(1, level) * 100)}%
+            {shownPct}%
           </div>
           <div className="absolute inset-x-0 top-2 text-lg">{pot.emoji}</div>
         </div>
+        {/* The glass edge, drawn over the liquid */}
+        <div
+          className={`pointer-events-none absolute inset-0 rounded-t-xl rounded-b-[1.6rem] ring-2 ring-inset ${
+            over ? "ring-pink-700/50 dark:ring-pink-300/60" : "ring-ink-faint/50"
+          }`}
+        />
+        {over && (
+          <>
+            {/* A dome of liquid bulging over the rim */}
+            <div className="jar-brim absolute -top-2.5 inset-x-0 h-4 rounded-t-full rounded-b-md bg-pink-500" />
+            {/* Drips: two down the outside, two down the front, each dropping off its tip */}
+            {[
+              { pos: "-left-[5px] w-[5px]", length: "64%", delay: "0s", tone: "bg-pink-500" },
+              { pos: "-right-[5px] w-[5px]", length: "40%", delay: "0.35s", tone: "bg-pink-500" },
+              { pos: "left-[28%] w-1.5", length: "30%", delay: "0.2s", tone: "bg-pink-700" },
+              { pos: "right-[22%] w-1", length: "18%", delay: "0.55s", tone: "bg-pink-700" },
+            ].map((d) => (
+              <div key={d.pos} className={`absolute top-0 ${d.pos}`} style={{ height: d.length }}>
+                <div className={`jar-drip h-full w-full rounded-b-full ${d.tone}`} style={{ animationDelay: d.delay }} />
+                <div
+                  className={`jar-drop absolute -bottom-1.5 left-1/2 -ml-[3px] size-1.5 rounded-full ${d.tone}`}
+                  style={{ animationDelay: `calc(${d.delay} + 1s)` }}
+                />
+              </div>
+            ))}
+            {/* The puddle */}
+            <div
+              className="jar-puddle absolute -bottom-2.5 h-2.5 rounded-[50%] bg-pink-500/70"
+              style={{ left: `${-spread}%`, right: `${-spread}%` }}
+            />
+          </>
+        )}
+        </div>
       </div>
-      <div className="mt-1.5 w-full truncate text-xs font-bold">{pot.name}</div>
+      <div className={`${over ? "mt-3.5" : "mt-1.5"} w-full truncate text-xs font-bold`}>{pot.name}</div>
       <div
         className={`text-[11px] tabular-nums ${
           empty ? "font-bold text-pink-600 dark:text-pink-400" : hit ? "font-bold text-emerald-600 dark:text-emerald-400" : low ? "font-bold text-amber-600 dark:text-amber-400" : "text-ink-soft"
