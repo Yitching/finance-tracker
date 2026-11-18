@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { feedback } from "../lib/feedback";
 import { dayLabel, money, timeLabel } from "../lib/money";
 import { CATEGORY_EMOJI, type Expense, type PendingExpense } from "../lib/types";
 import { CategoryPicker } from "./CategoryPicker";
@@ -51,7 +52,7 @@ export function Inbox({ pending, duplicates, onKeep, onToss, onKeepAll, onUpdate
     } else if (hadItems.current) {
       hadItems.current = false;
       setCelebrate(true);
-      navigator.vibrate?.([20, 60, 20]);
+      feedback("celebrate");
     }
   }, [pending.length]);
 
@@ -138,10 +139,10 @@ function SwipeCard({
       // Can't keep it without a price: snap back and ask.
       setDx(0);
       priceRef.current?.focus();
-      navigator.vibrate?.([10, 40, 10]);
+      feedback("error");
       return;
     }
-    navigator.vibrate?.(15);
+    feedback(dir === 1 ? "keep" : "toss");
     setGone(dir);
     window.setTimeout(() => (dir === 1 ? onKeep(e.amount === null ? n : undefined) : onToss()), 180);
   }
