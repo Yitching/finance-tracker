@@ -262,10 +262,84 @@ body::before {
     transform: translateX(3px) rotate(3deg);
   }
 }
+/* Over budget: the jar overflows. The lid tips off, the brim bulges, drips run down
+   the sides, drops fall off their tips, and a puddle spreads underneath. */
+.jar-lid-off {
+  transform: translate(-30%, -6px) rotate(-24deg);
+  transition: transform 0.5s cubic-bezier(0.34, 1.6, 0.64, 1);
+}
+.jar-brim {
+  transform-origin: bottom;
+  animation: jar-brim 1.8s ease-in-out infinite;
+}
+@keyframes jar-brim {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.25) scaleX(1.02);
+  }
+}
+.jar-drip {
+  transform-origin: top;
+  animation: jar-drip 1s var(--ease-out) both;
+}
+@keyframes jar-drip {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+.jar-drop {
+  opacity: 0;
+  animation: jar-drop 1.4s ease-in infinite;
+}
+@keyframes jar-drop {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(0.6);
+  }
+  15% {
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(26px) scale(0.8);
+  }
+}
+.jar-puddle {
+  animation: jar-puddle 1.4s var(--ease-out) both;
+}
+@keyframes jar-puddle {
+  from {
+    transform: scaleX(0.2);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .jar-wave,
   .jar-slosh,
-  .jar-shake {
+  .jar-shake,
+  .jar-brim,
+  .jar-drip,
+  .jar-puddle {
     animation: none;
+  }
+  .jar-drop {
+    display: none;
+  }
+  .jar-lid-off {
+    transition: none;
   }
 }
