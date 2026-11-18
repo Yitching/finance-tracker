@@ -19,6 +19,7 @@ import { Insights } from "./components/Insights";
 import { periodContaining, periodFor, periodRange, periodTitle, shiftPeriod } from "./lib/period";
 import { DEFAULT_BUDGET, useMonthlyBudget, usePeriodEnds, useStatementDay } from "./lib/settings";
 import { StatementOut } from "./components/StatementOut";
+import { feedback } from "./lib/feedback";
 import { usePots } from "./lib/pots";
 import { BudgetCard } from "./components/BudgetCard";
 import { PotsCard } from "./components/PotsCard";
@@ -159,10 +160,12 @@ function Home() {
     try {
       await setPeriodEnds({ ...before, [ended.key]: dateValue() });
     } catch {
+      feedback("error");
       showToast({ text: "Couldn't start a new budget. Has the latest database migration been pushed?" });
       return;
     }
     setPeriodKey(null);
+    feedback("fresh");
     showToast({
       text: `New budget started · ${periodTitle(homeNext, statementDay)}`,
       undo: () => void setPeriodEnds(before).catch(() => showToast({ text: "Couldn't undo that" })),
@@ -212,6 +215,18 @@ function Home() {
     return byCategory;
   }, [expenses, homePeriod]);
 
+  // Bloop when a spending pot tips over budget (not for pots that were already over when the app opened).
+  const overPots = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    const over = new Set(
+      pots.filter((p) => p.kind === "spend" && (homeSpentByCategory[p.category ?? ""] ?? 0) > p.amount).map((p) => p.id),
+    );
+    const before = overPots.current;
+    overPots.current = over;
+    if (before && [...over].some((id) => !before.has(id))) feedback("overflow");
+  }, [loading, pots, homeSpentByCategory]);
+
   const sources = useMemo(() => [...new Set(historyExpenses.map((e) => e.source).filter(Boolean))].sort(), [historyExpenses]);
   const filteredHistory = useMemo(() => historyExpenses.filter((e) => {
     const text = filters.text.trim().toLowerCase(); const date = new Date(e.spent_at); const amount = e.amount;
@@ -238,11 +253,16 @@ function Home() {
       const { saved, missingPrice } = await addText(text, spentAt(day));
       if (saved.length) {
         const ids = saved.map((r) => r.id);
+        feedback("log");
         showToast({ text: `Added ${describe(saved)}${forDay(day)}`, undo: () => void remove(ids) });
       }
       if (missingPrice.length) setAskQueue((q) => [...q, ...missingPrice.map((item) => ({ item, day }))]);
-      if (!saved.length && !missingPrice.length) showToast({ text: "Hmm, didn't catch any purchase there 🤔" });
+      if (!saved.length && !missingPrice.length) {
+        feedback("error");
+        showToast({ text: "Hmm, didn't catch any purchase there 🤔" });
+      }
     } catch {
+      feedback("error");
       showToast({ text: "Couldn't reach the AI. Check your connection?" });
     } finally {
       setBusy(false);
@@ -250,13 +270,14 @@ function Home() {
   }
 
   async function handleChip(m: Remembered) {
-    navigator.vibrate?.(15);
+    feedback("log");
     const row = await addDirect(m.display_name, m.last_amount, m.category, "chip", spentAt(day));
     showToast({ text: `Added ${describe([row])}${forDay(day)}`, undo: () => void remove([row.id]) });
   }
 
   async function handleRemembered(item: string, amount: number, category: string) {
     const row = await addDirect(item, amount, category, "memory", spentAt(day));
+    feedback("log");
     showToast({ text: `Added ${describe([row])}${forDay(day)}`, undo: () => void remove([row.id]) });
   }
 
@@ -278,6 +299,7 @@ function Home() {
         });
       }
     } catch {
+      feedback("error");
       showToast({ text: "Couldn't read the receipt. Try a clearer photo?" });
     } finally {
       setBusy(false);
@@ -329,6 +351,7 @@ function Home() {
   async function handleAskedPrice(ask: { item: string; day: string | null }, amount: number) {
     setAskQueue((q) => q.slice(1));
     const row = await addDirect(ask.item, amount, "Others", "manual", spentAt(ask.day));
+    feedback("log");
     showToast({
       text: `Added ${describe([row])}${forDay(ask.day)} · tap it to set a category`,
       undo: () => void remove([row.id]),
@@ -336,6 +359,7 @@ function Home() {
   }
 
   function handleDelete(e: Expense) {
+    feedback("delete");
     void remove([e.id]);
     showToast({ text: `Deleted ${e.item}`, undo: () => void restore([e]) });
   }
@@ -361,6 +385,7 @@ function Home() {
     if (!keep.length) return;
     const ids = keep.map((e) => e.id);
     void setStatus(ids, "confirmed");
+    feedback("keep");
     const skipped = pending.length - keep.length;
     showToast({
       text: `Kept ${describe(keep)}${skipped ? ` · ${skipped} left to check` : ""}`,
@@ -393,6 +418,7 @@ function Home() {
       {toast.undo && (
         <button
           onClick={() => {
+            feedback("undo");
             toast.undo?.();
             setToast(null);
           }}
@@ -624,7 +650,11 @@ function Home() {
                 pots={pots}
                 spentByCategory={homeSpentByCategory}
                 budget={budget}
-                onAddToPot={(id, amount) => void addToPot(id, amount)}
+                onAddToPot={(id, amount) => {
+                  const pot = pots.find((p) => p.id === id);
+                  feedback(pot && pot.saved < pot.amount && pot.saved + amount >= pot.amount ? "target" : "log");
+                  void addToPot(id, amount);
+                }}
                 onManage={() => open("settings")}
               />
             </div>

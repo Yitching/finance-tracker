@@ -18,6 +18,7 @@ import { DEFAULT_BUDGET } from "../lib/settings";
 import { emojiForCategory, SAVE_EMOJIS, type Pot, type PotKind } from "../lib/pots";
 import type { CardSettings } from "../lib/cards";
 import { CardsSettings } from "./CardsSettings";
+import { FeedbackSettings } from "./FeedbackSettings";
 import { CATEGORIES, CATEGORY_EMOJI, type MerchantRule } from "../lib/types";
 import { ScreenHeader } from "./ScreenHeader";
 
@@ -334,6 +335,8 @@ export function Settings({
           ))}
         </div>
       </section>
+
+      <FeedbackSettings />
 
       <Smoothness />
 
