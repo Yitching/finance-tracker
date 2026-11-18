@@ -139,7 +139,7 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
           onClick={() => fileRef.current?.click()}
           disabled={busy}
           aria-label="Scan a receipt"
-          className="flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium whitespace-nowrap transition active:scale-95 disabled:opacity-40 dark:bg-amber-900/50"
+          className="flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium whitespace-nowrap transition active:scale-95 disabled:opacity-40 dark:bg-amber-300 on-pastel"
         >
           📷{!day && <span className="@max-[20rem]:hidden">Receipt</span>}
         </button>
@@ -148,7 +148,7 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
           onClick={() => statementRef.current?.click()}
           disabled={busy}
           aria-label="Import a bank statement PDF"
-          className="flex shrink-0 items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium whitespace-nowrap transition active:scale-95 disabled:opacity-40 dark:bg-sky-900/50"
+          className="flex shrink-0 items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-medium whitespace-nowrap transition active:scale-95 disabled:opacity-40 dark:bg-sky-300 on-pastel"
         >
           📄{!day && <span className="@max-[20rem]:hidden">Statement</span>}
         </button>
@@ -210,7 +210,7 @@ export function QuickAdd({ onSubmit, onRemembered, onPhoto, onStatement, memory,
             onClick={toggleMic}
             aria-label={listening ? "Stop listening" : "Say it instead"}
             className={`grid size-11 shrink-0 place-items-center rounded-2xl text-xl transition ${
-              listening ? "animate-pulse bg-danger text-white" : "bg-pink-100 dark:bg-pink-900/50"
+              listening ? "animate-pulse bg-danger text-white" : "bg-pink-100 dark:bg-pink-300 on-pastel"
             }`}
           >
             🎙️

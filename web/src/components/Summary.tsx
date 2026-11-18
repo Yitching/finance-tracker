@@ -25,11 +25,11 @@ export function SummaryStrip({ expenses, onOpen }: { expenses: Expense[]; onOpen
       aria-label="Spending breakdown"
       className="@container flex w-full items-center gap-2 rounded-3xl bg-card p-2 text-left shadow-sm ring-1 ring-line transition active:scale-[0.99] @min-[22rem]:gap-3"
     >
-      <span className="min-w-0 flex-1 rounded-2xl bg-lime-200/70 px-3 py-3 dark:bg-lime-900/40 @min-[22rem]:px-4">
+      <span className="min-w-0 flex-1 rounded-2xl bg-lime-200/70 px-3 py-3 dark:bg-lime-300 on-pastel @min-[22rem]:px-4">
         <span className="block text-xs font-semibold text-ink-soft">Today</span>
         <span className="block truncate text-lg font-extrabold tabular-nums @min-[22rem]:text-xl">{money(today)}</span>
       </span>
-      <span className="min-w-0 flex-1 rounded-2xl bg-amber-100 px-3 py-3 dark:bg-amber-900/40 @min-[22rem]:px-4">
+      <span className="min-w-0 flex-1 rounded-2xl bg-amber-100 px-3 py-3 dark:bg-amber-300 on-pastel @min-[22rem]:px-4">
         <span className="block text-xs font-semibold text-ink-soft">This week</span>
         <span className="block truncate text-lg font-extrabold tabular-nums @min-[22rem]:text-xl">{money(week)}</span>
       </span>
@@ -94,14 +94,14 @@ export function PeriodSummary({
       <div className="flex items-baseline justify-between gap-3">
         <div className="text-4xl font-extrabold tracking-tight tabular-nums">{money(total)}</div>
         {left !== null && (
-          <div className="shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
+          <div className="shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 dark:bg-amber-400/20 dark:text-amber-200">
             {left} day{left === 1 ? "" : "s"} left
           </div>
         )}
       </div>
       )}
       {compareTotal > 0 && (
-        <div className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${diff > 0 ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200"}`}>
+        <div className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${diff > 0 ? "bg-red-100 text-red-700 dark:bg-red-400/20 dark:text-red-200" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-200"}`}>
           {diff > 0 ? "▲" : "▼"} {money(Math.abs(diff))} vs {ongoing ? `same point of ${previousTitle}` : previousTitle}
         </div>
       )}

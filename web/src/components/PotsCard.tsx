@@ -176,7 +176,7 @@ function Jar({ pot, spent, onAdd }: { pot: Pot; spent: number; onAdd: (amount: n
               key={n}
               onClick={() => onAdd(n)}
               aria-label={`Add $${n} to ${pot.name}`}
-              className="rounded-full bg-lime-100 px-2 py-0.5 text-[11px] font-bold text-lime-800 transition active:scale-95 dark:bg-lime-900/60 dark:text-lime-200"
+              className="rounded-full bg-lime-100 px-2 py-0.5 text-[11px] font-bold text-lime-800 transition active:scale-95 dark:bg-lime-400/20 dark:text-lime-200"
             >
               +${n}
             </button>

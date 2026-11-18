@@ -67,7 +67,7 @@ export function BillsRadar({
       </section>
 
       {changes.map((b) => (
-        <section key={b.key} className="animate-fade-up rounded-3xl bg-pink-100 p-4 ring-1 ring-line dark:bg-pink-900/40">
+        <section key={b.key} className="animate-fade-up rounded-3xl bg-pink-100 p-4 ring-1 ring-line dark:bg-pink-400/20">
           <p className="font-bold">
             {b.name} went {b.priceChange > 0 ? "up" : "down"} by {money(Math.abs(b.priceChange))}
           </p>
@@ -93,7 +93,7 @@ export function BillsRadar({
       ))}
 
       {missed.map((b) => (
-        <section key={b.key} className="animate-fade-up rounded-3xl bg-amber-100 p-4 ring-1 ring-line dark:bg-amber-900/40">
+        <section key={b.key} className="animate-fade-up rounded-3xl bg-amber-100 p-4 ring-1 ring-line dark:bg-amber-400/20">
           <p className="font-bold">{b.name} hasn't charged since {shortDate(new Date(b.lastDate))}</p>
           <p className="mt-0.5 text-sm text-ink-soft">
             It was due around {shortDate(new Date(b.nextDate))}. If you cancelled it, stop expecting it.
