@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
+import type { PeriodEnds } from "./period";
 
 // Cached locally so periods render correctly before the network answers.
 const KEY = "lazy-ledger.statement-day";
@@ -115,4 +116,69 @@ export function useMonthlyBudget() {
   }, []);
 
   return [budget, save] as const;
+}
+
+const ENDS_KEY = "lazy-ledger.period-ends";
+
+/** Only well-formed entries: "YYYY-MM" → "YYYY-MM-DD". */
+function cleanEnds(value: unknown): PeriodEnds | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const out: PeriodEnds = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (/^\d{4}-\d{2}$/.test(k) && typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) out[k] = v;
+  }
+  return out;
+}
+
+function cachedEnds(): PeriodEnds {
+  try {
+    return cleanEnds(JSON.parse(localStorage.getItem(ENDS_KEY) ?? "null")) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** Periods you ended early when the statement came out. Synced via user_settings. */
+export function usePeriodEnds() {
+  const [ends, setEnds] = useState<PeriodEnds>(cachedEnds);
+
+  useEffect(() => {
+    let alive = true;
+    void supabase
+      .from("user_settings")
+      .select("period_ends")
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!alive || error) return; // e.g. migration not pushed yet: keep the cached value
+        const next = cleanEnds(data?.period_ends);
+        if (!next) return;
+        setEnds(next);
+        try {
+          localStorage.setItem(ENDS_KEY, JSON.stringify(next));
+        } catch {
+          // Private mode: the database copy still works.
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const save = useCallback(async (next: PeriodEnds) => {
+    setEnds(next);
+    try {
+      localStorage.setItem(ENDS_KEY, JSON.stringify(next));
+    } catch {
+      // Private mode: the database copy still works.
+    }
+    const { data: session } = await supabase.auth.getSession();
+    const userId = session.session?.user.id;
+    if (!userId) return;
+    const { error } = await supabase
+      .from("user_settings")
+      .upsert({ user_id: userId, period_ends: next, updated_at: new Date().toISOString() });
+    if (error) throw error;
+  }, []);
+
+  return [ends, save] as const;
 }
