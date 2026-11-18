@@ -3,7 +3,7 @@ import { money } from "../lib/money";
 import { daysLeft, periodRange, periodTitle, type Period } from "../lib/period";
 
 /**
- * Budget ring for the current spending period: total spent vs the monthly cap
+ * Budget ring for a spending period (the Spending screen): total spent vs the monthly cap
  * (all categories, SGD), with what's left or over, and the daily pace.
  * Playful Pop: the ring lives on a coral → pink gradient hero card.
  * The cap is the statement period when a statement day is set, otherwise the
@@ -14,13 +14,11 @@ export function BudgetCard({
   period,
   statementDay,
   budget,
-  compact = false,
 }: {
   total: number;
   period: Period;
   statementDay: number | null;
   budget: number;
-  compact?: boolean;
 }) {
   const stats = useMemo(() => {
     const left = daysLeft(period);
@@ -70,36 +68,6 @@ export function BudgetCard({
       />
     </svg>
   );
-
-  if (compact) {
-    return (
-      <section className="bg-pop-gradient animate-fade-up rounded-3xl p-4 text-white shadow-lg shadow-pink-200/60 dark:shadow-none">
-        <div className="flex items-center gap-4">
-          <div className="relative shrink-0 animate-pop">
-            {ring(84, 10)}
-            <div className="absolute inset-0 grid place-items-center">
-              <div className="text-center">
-                <div className="text-lg font-extrabold tabular-nums">{Math.round(stats.pct * 100)}%</div>
-                <div className="text-[10px] font-medium text-white/80">used</div>
-              </div>
-            </div>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm text-white/85">
-              {periodTitle(period, statementDay)} · {money(total)} of {money(budget)}
-            </div>
-            <div className="text-xl font-extrabold tabular-nums">
-              {stats.over ? `${money(-stats.remaining)} over` : `${money(stats.remaining)} left`}
-            </div>
-            <div className="text-xs text-white/85">
-              {stats.left !== null ? `${stats.left} day${stats.left === 1 ? "" : "s"} left` : "Period ended"}
-              {stats.over ? ` · ${money(stats.dailySoFar)}/day so far` : ` · ${money(stats.dailyLeft)}/day left`}
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
 
   return (
     <section className="@container bg-pop-gradient animate-fade-up rounded-3xl p-5 text-white shadow-lg shadow-pink-200/60 dark:shadow-none">

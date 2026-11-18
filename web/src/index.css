@@ -170,3 +170,36 @@ body::before {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Range slider on the pink gradient (Safe to spend's "what if"): white thumb on a soft white track. */
+.range-on-pop {
+  appearance: none;
+  height: 1.5rem;
+  background: transparent;
+}
+.range-on-pop::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.4);
+}
+.range-on-pop::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.4);
+}
+.range-on-pop::-webkit-slider-thumb {
+  appearance: none;
+  margin-top: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.2);
+}
+.range-on-pop::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+}

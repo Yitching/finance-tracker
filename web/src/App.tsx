@@ -21,6 +21,8 @@ import { DEFAULT_BUDGET, useMonthlyBudget, useStatementDay } from "./lib/setting
 import { usePots } from "./lib/pots";
 import { BudgetCard } from "./components/BudgetCard";
 import { PotsCard } from "./components/PotsCard";
+import { SafeToSpend } from "./components/SafeToSpend";
+import { PaceChart } from "./components/PaceChart";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -130,17 +132,8 @@ function Home() {
 
   const periodTotal = useMemo(() => periodExpenses.reduce((s, e) => s + e.amount, 0), [periodExpenses]);
 
-  // Home's budget ring: the period you're in now, from the fast 62-day query.
+  // Home's hero: the period you're in now, from the fast 62-day query.
   const homePeriod = useMemo(() => periodContaining(statementDay), [statementDay]);
-  const homeTotal = useMemo(() => {
-    const from = homePeriod.from.getTime();
-    const to = homePeriod.to.getTime();
-    return expenses.reduce((s, e) => {
-      const t = new Date(e.spent_at).getTime();
-      return t >= from && t < to ? s + e.amount : s;
-    }, 0);
-  }, [expenses, homePeriod]);
-
   // Spending pots: what each category has used in the period you're in now.
   const homeSpentByCategory = useMemo(() => {
     const from = homePeriod.from.getTime();
@@ -402,6 +395,7 @@ function Home() {
                   statementDay={statementDay}
                   budget={budget}
                 />
+                <PaceChart expenses={periodExpenses} period={period} budget={budget} />
                 <PeriodSummary
                   period={period}
                   previous={previous}
@@ -486,9 +480,8 @@ function Home() {
         ) : (
           <>
             {pending.length > 0 && <InboxBanner pending={pending} onOpen={() => open("inbox")} />}
-            <BudgetCard
-              compact
-              total={homeTotal}
+            <SafeToSpend
+              expenses={expenses}
               period={homePeriod}
               statementDay={statementDay}
               budget={budget}
