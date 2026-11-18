@@ -16,6 +16,8 @@ import { applyTheme, savedTheme, type Theme } from "../lib/theme";
 import { periodContaining, periodRange, periodTitle } from "../lib/period";
 import { DEFAULT_BUDGET } from "../lib/settings";
 import { emojiForCategory, SAVE_EMOJIS, type Pot, type PotKind } from "../lib/pots";
+import type { CardSettings } from "../lib/cards";
+import { CardsSettings } from "./CardsSettings";
 import { CATEGORIES, CATEGORY_EMOJI, type MerchantRule } from "../lib/types";
 import { ScreenHeader } from "./ScreenHeader";
 
@@ -57,6 +59,8 @@ export function Settings({
   onStatementDayChange,
   pots,
   onPotsChange,
+  cardSettings,
+  onCardSettingsChange,
 }: {
   onBack: () => void;
   onCaptured: () => void;
@@ -66,6 +70,8 @@ export function Settings({
   onStatementDayChange: (day: number | null) => Promise<void>;
   pots: Pot[];
   onPotsChange: (pots: Pot[]) => Promise<void>;
+  cardSettings: CardSettings;
+  onCardSettingsChange: (next: CardSettings) => Promise<void>;
 }) {
   const [info, setInfo] = useState<TokenInfo | null | undefined>(undefined);
   const [token, setToken] = useState<string | null>(() => savedToken());
@@ -548,6 +554,8 @@ export function Settings({
         </button>
         {potsError && <p className="text-sm text-danger">{potsError}</p>}
       </section>
+
+      <CardsSettings settings={cardSettings} onSave={onCardSettingsChange} />
 
       <section className="space-y-4 rounded-3xl bg-card p-5 ring-1 ring-line">
         <div>

@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import { dateValue, dayLabel, money, onDay } from "../lib/money";
 import { CATEGORY_EMOJI, type Expense, type ExpensePatch } from "../lib/types";
 import { categoryChip } from "../lib/categoryStyle";
 import { CategoryPicker } from "./CategoryPicker";
 import { DayPicker } from "./DayPicker";
+import { CardsContext, cardFor } from "../lib/cards";
 
 type Props = {
   expenses: Expense[];
@@ -101,6 +102,10 @@ function EditRow({
   const [category, setCategory] = useState(expense.category);
   const [day, setDay] = useState(dateValue(new Date(expense.spent_at)));
   const [note, setNote] = useState(expense.note ?? "");
+  const cards = useContext(CardsContext);
+  // "none" = you said no card, which also overrides a match from the bank alert.
+  const initialCard = expense.card ?? cardFor(expense, cards)?.id ?? "none";
+  const [card, setCard] = useState(initialCard);
 
   return (
     <li className="space-y-3 bg-bg/60 px-4 py-3">
@@ -126,6 +131,22 @@ function EditRow({
         className="w-full rounded-xl bg-card px-3 py-2 text-sm outline-none ring-1 ring-line placeholder:text-ink-faint focus:ring-accent"
       />
       <CategoryPicker value={category} onChange={setCategory} />
+      {cards.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Card used">
+          {[{ id: "none", name: "No card" }, ...cards].map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setCard(c.id)}
+              aria-pressed={card === c.id}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
+                card === c.id ? "bg-ink text-bg ring-ink" : "bg-card ring-line"
+              }`}
+            >
+              {c.id === "none" ? "No card" : `💳 ${c.name}`}
+            </button>
+          ))}
+        </div>
+      )}
       <DayPicker
         value={day}
         onChange={setDay}
@@ -152,6 +173,7 @@ function EditRow({
               amount: Number.isFinite(n) && n >= 0 ? n : expense.amount,
               category,
               note: note.trim() || null,
+              ...(card !== initialCard ? { card } : {}),
               // Same time of day, new date
               ...(moved ? { spent_at: onDay(day, new Date(expense.spent_at)).toISOString() } : {}),
             });

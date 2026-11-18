@@ -128,7 +128,7 @@ export function useLedger() {
   const restore = useCallback(
     async (rows: PendingExpense[]) => {
       await supabase.from("expenses").insert(
-        rows.map(({ id, item, amount, category, spent_at, source, status, raw_input, merchant, note }) => ({
+        rows.map(({ id, item, amount, category, spent_at, source, status, raw_input, merchant, note, card }) => ({
           id,
           item,
           amount,
@@ -139,6 +139,8 @@ export function useLedger() {
           raw_input,
           merchant,
           note,
+          // Only when set, so undo still works before the card migration is pushed.
+          ...(card ? { card } : {}),
         })),
       );
       await refresh();
