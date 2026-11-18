@@ -23,6 +23,7 @@ import { BudgetCard } from "./components/BudgetCard";
 import { PotsCard } from "./components/PotsCard";
 import { SafeToSpend } from "./components/SafeToSpend";
 import { PaceChart } from "./components/PaceChart";
+import { SpendingCalendar } from "./components/SpendingCalendar";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -394,6 +395,14 @@ function Home() {
                   period={period}
                   statementDay={statementDay}
                   budget={budget}
+                />
+                <SpendingCalendar
+                  key={period.key}
+                  expenses={visiblePeriodExpenses}
+                  period={period}
+                  filtered={hasFilters}
+                  onDelete={handleDelete}
+                  onUpdate={update}
                 />
                 <PaceChart expenses={periodExpenses} period={period} budget={budget} />
                 <PeriodSummary

@@ -30,6 +30,12 @@
   --color-pop-2: #ff5c8a;
   --color-pop-3: #ffd166;
   --color-lime: #d9f99d;
+  /* Spending calendar heat: one coral hue, light → dark. */
+  --color-heat-1: #ffe6d5;
+  --color-heat-2: #ffc9a8;
+  --color-heat-3: #ffa67a;
+  --color-heat-4: #f77f50;
+  --color-heat-5: #d9572f;
 
   /* Short and ease-out: reads as smooth even when a phone caps an installed app at 60 fps.
      Every animation here moves only transform and opacity, which skip layout and paint. */
@@ -82,6 +88,11 @@
     --color-accent-soft: #0f8a6a;
     --color-good: #45c9a3;
     --color-danger: #ef6f80;
+    --color-heat-1: #3a2a20;
+    --color-heat-2: #5a3624;
+    --color-heat-3: #84462b;
+    --color-heat-4: #b65a34;
+    --color-heat-5: #e47a4a;
   }
 }
 
@@ -97,6 +108,11 @@
   --color-accent-soft: #0f8a6a;
   --color-good: #45c9a3;
   --color-danger: #ef6f80;
+  --color-heat-1: #3a2a20;
+  --color-heat-2: #5a3624;
+  --color-heat-3: #84462b;
+  --color-heat-4: #b65a34;
+  --color-heat-5: #e47a4a;
 }
 
 html,
