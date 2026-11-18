@@ -12,10 +12,26 @@ export function savedTheme(): Theme {
   }
 }
 
+const BAR = { light: "#0f8a6a", dark: "#000000" };
+const prefersDark = () => window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+
+/** Phone status bar colour: teal in light mode, black in dark (matching the OLED background). */
+export function syncStatusBar() {
+  const set = document.documentElement.dataset.theme;
+  const dark = set === "dark" || (set !== "light" && prefersDark());
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? BAR.dark : BAR.light);
+}
+
+// "System" follows the phone, so keep the bar in step when the phone switches.
+if (typeof window !== "undefined") {
+  window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", syncStatusBar);
+}
+
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
   if (theme === "system") delete root.dataset.theme;
   else root.dataset.theme = theme;
+  syncStatusBar();
   try {
     if (theme === "system") localStorage.removeItem(KEY);
     else localStorage.setItem(KEY, theme);

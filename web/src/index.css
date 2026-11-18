@@ -65,6 +65,22 @@
   }
 }
 
+/* Text on a pastel tile stays dark in dark mode too (the tile stays pastel). */
+:root[data-theme="dark"] .on-pastel {
+  color: #231a12;
+  --color-ink: #231a12;
+  --color-ink-soft: #5b4b3c;
+  --color-ink-faint: #8a7866;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .on-pastel {
+    color: #231a12;
+    --color-ink: #231a12;
+    --color-ink-soft: #5b4b3c;
+    --color-ink-faint: #8a7866;
+  }
+}
+
 /* Playful Pop gradient: coral → pink, used for the budget hero and big buttons. */
 .bg-pop-gradient {
   background: linear-gradient(135deg, var(--color-pop-1), var(--color-pop-2));
@@ -78,41 +94,41 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --color-bg: #1a1512;
-    --color-card: #241d18;
-    --color-ink: #f7f0e8;
-    --color-ink-soft: #b8a894;
-    --color-ink-faint: #7d7264;
-    --color-line: #33291f;
-    --color-accent: #2bb38d;
-    --color-accent-soft: #0f8a6a;
-    --color-good: #45c9a3;
-    --color-danger: #ef6f80;
-    --color-heat-1: #3a2a20;
-    --color-heat-2: #5a3624;
-    --color-heat-3: #84462b;
-    --color-heat-4: #b65a34;
-    --color-heat-5: #e47a4a;
+    --color-bg: #000000;
+    --color-card: #141418;
+    --color-ink: #fafafa;
+    --color-ink-soft: #a8a8b3;
+    --color-ink-faint: #6c6c78;
+    --color-line: #26262d;
+    --color-accent: #34d399;
+    --color-accent-soft: #10a37a;
+    --color-good: #4ade80;
+    --color-danger: #fb7185;
+    --color-heat-1: #2b1420;
+    --color-heat-2: #4d1a33;
+    --color-heat-3: #82244f;
+    --color-heat-4: #c7336f;
+    --color-heat-5: #ff5c8a;
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --color-bg: #1a1512;
-  --color-card: #241d18;
-  --color-ink: #f7f0e8;
-  --color-ink-soft: #b8a894;
-  --color-ink-faint: #7d7264;
-  --color-line: #33291f;
-  --color-accent: #2bb38d;
-  --color-accent-soft: #0f8a6a;
-  --color-good: #45c9a3;
-  --color-danger: #ef6f80;
-  --color-heat-1: #3a2a20;
-  --color-heat-2: #5a3624;
-  --color-heat-3: #84462b;
-  --color-heat-4: #b65a34;
-  --color-heat-5: #e47a4a;
+  --color-bg: #000000;
+  --color-card: #141418;
+  --color-ink: #fafafa;
+  --color-ink-soft: #a8a8b3;
+  --color-ink-faint: #6c6c78;
+  --color-line: #26262d;
+  --color-accent: #34d399;
+  --color-accent-soft: #10a37a;
+  --color-good: #4ade80;
+  --color-danger: #fb7185;
+  --color-heat-1: #2b1420;
+  --color-heat-2: #4d1a33;
+  --color-heat-3: #82244f;
+  --color-heat-4: #c7336f;
+  --color-heat-5: #ff5c8a;
 }
 
 html,

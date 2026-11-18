@@ -194,7 +194,7 @@ export function CardsSettings({
                               })
                             }
                             aria-pressed={on}
-                            className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${on ? "bg-lime-200 text-lime-900 ring-lime-300 dark:bg-lime-900/60 dark:text-lime-100 dark:ring-lime-800" : "ring-line"}`}
+                            className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${on ? "bg-lime-200 text-lime-900 ring-lime-300 dark:bg-lime-400/20 dark:text-lime-100 dark:ring-lime-800" : "ring-line"}`}
                           >
                             {CATEGORY_EMOJI[c]} {c}
                           </button>

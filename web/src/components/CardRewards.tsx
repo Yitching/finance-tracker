@@ -102,7 +102,7 @@ export function CardRewards({
                 </span>
                 <span
                   className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular-nums ${
-                    best.onBonus ? "bg-lime-200 text-lime-900 dark:bg-lime-900/60 dark:text-lime-100" : "bg-bg text-ink-soft"
+                    best.onBonus ? "bg-lime-200 text-lime-900 dark:bg-lime-400/20 dark:text-lime-100" : "bg-bg text-ink-soft"
                   }`}
                 >
                   {best.rateLabel}
