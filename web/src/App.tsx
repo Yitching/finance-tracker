@@ -20,6 +20,7 @@ import { periodContaining, periodFor, periodRange, periodTitle, shiftPeriod } fr
 import { DEFAULT_BUDGET, useMonthlyBudget, usePeriodEnds, useStatementDay } from "./lib/settings";
 import { StatementOut } from "./components/StatementOut";
 import { feedback } from "./lib/feedback";
+import { useCategoryColours } from "./lib/categoryStyle";
 import { usePots } from "./lib/pots";
 import { BudgetCard } from "./components/BudgetCard";
 import { PotsCard } from "./components/PotsCard";
@@ -78,6 +79,7 @@ function Home() {
   const budget = monthlyBudget ?? DEFAULT_BUDGET;
   const [pots, setPots, addToPot] = usePots();
   const [cardSettings, setCardSettings] = useCardSettings();
+  const [categoryColours, setCategoryColours] = useCategoryColours();
   // The Spending screen's period ("YYYY-MM"); null = the one you're in now.
   const [periodKey, setPeriodKey] = useState<string | null>(null);
   const period = useMemo(
@@ -566,6 +568,8 @@ function Home() {
             onPotsChange={(p) => setPots(p)}
             cardSettings={cardSettings}
             onCardSettingsChange={setCardSettings}
+            categoryColours={categoryColours}
+            onCategoryColoursChange={setCategoryColours}
             onStatementDayChange={(d) => {
               setPeriodKey(null);
               return setStatementDay(d);

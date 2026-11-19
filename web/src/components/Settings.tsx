@@ -19,6 +19,8 @@ import { emojiForCategory, SAVE_EMOJIS, type Pot, type PotKind } from "../lib/po
 import type { CardSettings } from "../lib/cards";
 import { CardsSettings } from "./CardsSettings";
 import { FeedbackSettings } from "./FeedbackSettings";
+import { CategoryColours } from "./CategoryColours";
+import type { PaletteColour } from "../lib/categoryStyle";
 import { CATEGORIES, CATEGORY_EMOJI, type MerchantRule } from "../lib/types";
 import { ScreenHeader } from "./ScreenHeader";
 
@@ -65,6 +67,8 @@ export function Settings({
   onPotsChange,
   cardSettings,
   onCardSettingsChange,
+  categoryColours,
+  onCategoryColoursChange,
 }: {
   onBack: () => void;
   onCaptured: () => void;
@@ -80,6 +84,8 @@ export function Settings({
   onPotsChange: (pots: Pot[]) => Promise<void>;
   cardSettings: CardSettings;
   onCardSettingsChange: (next: CardSettings) => Promise<void>;
+  categoryColours: Record<string, PaletteColour>;
+  onCategoryColoursChange: (next: Record<string, PaletteColour>) => Promise<void>;
 }) {
   const [info, setInfo] = useState<TokenInfo | null | undefined>(undefined);
   const [token, setToken] = useState<string | null>(() => savedToken());
@@ -335,6 +341,8 @@ export function Settings({
           ))}
         </div>
       </section>
+
+      <CategoryColours colours={categoryColours} onChange={onCategoryColoursChange} />
 
       <FeedbackSettings />
 
