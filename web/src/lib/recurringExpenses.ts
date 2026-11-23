@@ -10,6 +10,9 @@ export const BANK_SOURCES = ["notification", "email", "statement"];
 /** "Repeat this" from the expense editor; null until the app provides it. */
 export const RepeatContext = createContext<((e: Expense, cadence: Cadence) => Promise<void>) | null>(null);
 
+/** Recurring expense id → how often it repeats, for the tag under linked expenses. */
+export const CadenceContext = createContext<Record<string, Cadence>>({});
+
 /**
  * Recurring expenses you set up yourself: "Rent, $1,800, monthly from 1 Dec".
  * When the app opens it adds every occurrence that has come due since it last looked

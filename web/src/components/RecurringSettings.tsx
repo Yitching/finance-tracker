@@ -10,6 +10,7 @@ import {
 import { CATEGORY_EMOJI } from "../lib/types";
 import { categoryChip } from "../lib/categoryStyle";
 import { CategoryPicker } from "./CategoryPicker";
+import { RepeatIcon } from "./RepeatIcon";
 
 const CADENCES: { value: Cadence; label: string }[] = [
   { value: "weekly", label: "Weekly" },
@@ -92,7 +93,10 @@ export function RecurringSettings({
   return (
     <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
       <div>
-        <h2 className="text-lg font-semibold">🔁 Recurring expenses</h2>
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <RepeatIcon className="size-5 text-accent" />
+          Recurring expenses
+        </h2>
         <p className="mt-1 text-sm text-ink-soft">
           Rent, insurance, subscriptions. Each one is added on its due date, the next time you open the app, and shows on
           the Bills radar. Deleting one that was added doesn't bring it back. For ones your bank alerts already capture, turn
@@ -111,7 +115,7 @@ export function RecurringSettings({
                     {CATEGORY_EMOJI[r.category] ?? "📦"}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{r.item}</span>
+                    <span className="block font-medium break-words">{r.item}</span>
                     <span className="block truncate text-xs text-ink-soft">
                       {describeCadence(r)}
                       {!r.auto_add ? " · from bank alerts" : r.to_inbox && " · to Inbox"}
@@ -189,14 +193,14 @@ export function RecurringSettings({
           </div>
           <p className="text-xs text-ink-faint">
             {describeCadence(editing)}.
-            {editing.auto_add ? " A date in the past adds the ones you've missed since then." : " Matching bank charges are labelled 🔁 as they arrive."}
+            {editing.auto_add ? " A date in the past adds the ones you've missed since then." : " Matching bank charges are labelled as recurring as they arrive."}
           </p>
           <Toggle
             label="Add it automatically"
             hint={
               editing.auto_add
                 ? "The app adds each one when it's due."
-                : "Off: your bank alerts already bring it in, so matching charges are just labelled 🔁."
+                : "Off: your bank alerts already bring it in, so matching charges are just labelled as recurring."
             }
             on={editing.auto_add}
             onChange={(auto_add) => setEditing({ ...editing, auto_add })}

@@ -29,7 +29,7 @@ import { PaceChart } from "./components/PaceChart";
 import { SpendingCalendar } from "./components/SpendingCalendar";
 import { BillsRadar } from "./components/BillsRadar";
 import { findRecurring, nameKey, type RecurringCandidate } from "./lib/recurring";
-import { asBill, BANK_SOURCES, describeCadence, linkExpenses, matchingOccurrences, nextDue, RepeatContext, useRecurringExpenses, type Cadence } from "./lib/recurringExpenses";
+import { asBill, BANK_SOURCES, CadenceContext, describeCadence, linkExpenses, matchingOccurrences, nextDue, RepeatContext, useRecurringExpenses, type Cadence } from "./lib/recurringExpenses";
 import { billsOutlook, committedUntil, useBillPrefs } from "./lib/bills";
 import { CardsContext, useCardSettings } from "./lib/cards";
 import { CardRewards } from "./components/CardRewards";
@@ -82,6 +82,10 @@ function Home() {
   const [cardSettings, setCardSettings] = useCardSettings();
   const [categoryColours, setCategoryColours] = useCategoryColours();
   const recurringApi = useRecurringExpenses();
+  const cadenceById = useMemo(
+    () => Object.fromEntries(recurringApi.rules.map((r) => [r.id, r.cadence])),
+    [recurringApi.rules],
+  );
   // The Spending screen's period ("YYYY-MM"); null = the one you're in now.
   const [periodKey, setPeriodKey] = useState<string | null>(null);
   const period = useMemo(
@@ -252,14 +256,14 @@ function Home() {
       // Recent confirmed charges, so tracked bank charges can be labelled as they arrive.
       const { added, toInbox, labelled } = await recurringApi.catchUp(expenses);
       if (!added) {
-        if (labelled) await refresh(); // show the new 🔁 labels
+        if (labelled) await refresh(); // show the new recurring tags
         return;
       }
       await refresh();
       feedback("log");
       const s = added === 1 ? "" : "s";
       showToast({
-        text: toInbox === added ? `🔁 ${added} recurring expense${s} to confirm in your Inbox` : `🔁 Added ${added} recurring expense${s}`,
+        text: toInbox === added ? `${added} recurring expense${s} to confirm in your Inbox` : `Added ${added} recurring expense${s}`,
       });
     } finally {
       catchingUp.current = false;
@@ -303,7 +307,7 @@ function Home() {
       const next = nextDue(rule);
       const past = linked - 1;
       showToast({
-        text: `🔁 ${e.item}: ${describeCadence(rule).toLowerCase()}${next ? `, next on ${dayLabel(onDay(next).toISOString())}` : ""}${
+        text: `${e.item} repeats ${describeCadence(rule).toLowerCase()}${next ? `, next on ${dayLabel(onDay(next).toISOString())}` : ""}${
           past > 0 ? ` · ${past} past one${past === 1 ? "" : "s"} labelled` : ""
         }`,
         // Deleting the recurring expense unlinks everything it labelled (on delete set null).
@@ -520,6 +524,7 @@ function Home() {
     return (
       <CardsContext.Provider value={cardSettings.cards}>
       <RepeatContext.Provider value={repeatExpense}>
+      <CadenceContext.Provider value={cadenceById}>
       <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
         {view === "spending" ? (
           <div className="flex flex-1 flex-col space-y-5 px-4 pb-24">
@@ -668,6 +673,7 @@ function Home() {
           </div>
         )}
       </div>
+      </CadenceContext.Provider>
       </RepeatContext.Provider>
       </CardsContext.Provider>
     );
@@ -676,6 +682,7 @@ function Home() {
   return (
     <CardsContext.Provider value={cardSettings.cards}>
       <RepeatContext.Provider value={repeatExpense}>
+      <CadenceContext.Provider value={cadenceById}>
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
       <header className="@container flex items-center justify-between gap-3 px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
         <div className="min-w-0">
@@ -788,7 +795,8 @@ function Home() {
         </div>
       </div>
     </div>
-    </RepeatContext.Provider>
+    </CadenceContext.Provider>
+      </RepeatContext.Provider>
       </CardsContext.Provider>
   );
 }

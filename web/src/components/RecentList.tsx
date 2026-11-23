@@ -5,7 +5,8 @@ import { categoryChip } from "../lib/categoryStyle";
 import { CategoryPicker } from "./CategoryPicker";
 import { DayPicker } from "./DayPicker";
 import { CardsContext, cardFor } from "../lib/cards";
-import { BANK_SOURCES, RepeatContext } from "../lib/recurringExpenses";
+import { BANK_SOURCES, CadenceContext, RepeatContext } from "../lib/recurringExpenses";
+import { RecurringTag, RepeatIcon } from "./RepeatIcon";
 
 type Props = {
   expenses: Expense[];
@@ -17,6 +18,7 @@ type Props = {
 
 export function RecentList({ expenses, onDelete, onUpdate, limit }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const cadenceOf = useContext(CadenceContext);
 
   const groups = useMemo(() => {
     const map = new Map<string, Expense[]>();
@@ -72,17 +74,12 @@ export function RecentList({ expenses, onDelete, onUpdate, limit }: Props) {
                       {CATEGORY_EMOJI[e.category] ?? "📦"}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">
-                        {e.recurring_id && (
-                          <span className="mr-1" title="Recurring" aria-label="Recurring">
-                            🔁
-                          </span>
-                        )}
-                        {e.item}
-                      </span>
+                      {/* The full name, wrapping onto more lines when it's long. */}
+                      <span className="block font-medium break-words">{e.item}</span>
+                      {e.recurring_id && <RecurringTag cadence={cadenceOf[e.recurring_id]} />}
                       {e.note && <span className="block truncate text-xs text-ink-soft">📝 {e.note}</span>}
                     </span>
-                    <span className="font-bold tabular-nums">{money(e.amount)}</span>
+                    <span className="shrink-0 font-bold tabular-nums">{money(e.amount)}</span>
                   </button>
                 </li>
               ),
@@ -160,11 +157,17 @@ function EditRow({
         </div>
       )}
       {expense.recurring_id ? (
-        <p className="text-xs text-ink-soft">🔁 Added by a recurring expense. Change it in Settings → Recurring expenses.</p>
+        <p className="flex items-center gap-1.5 text-xs text-ink-soft">
+          <RepeatIcon className="size-3.5 text-accent" />
+          Part of a recurring expense. Change it in Settings → Recurring expenses.
+        </p>
       ) : (
         canRepeat && (
           <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Repeat this expense">
-            <span className="text-xs text-ink-soft">{fromBank ? "🔁 Mark as recurring" : "🔁 Repeat"}</span>
+            <span className="flex w-full items-center gap-1 text-xs text-ink-soft">
+              <RepeatIcon className="size-3.5 text-accent" />
+              {fromBank ? "Mark as recurring" : "Repeat"}
+            </span>
             {(["weekly", "monthly", "yearly"] as const).map((c) => (
               <button
                 key={c}
