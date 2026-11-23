@@ -29,7 +29,7 @@ import { PaceChart } from "./components/PaceChart";
 import { SpendingCalendar } from "./components/SpendingCalendar";
 import { BillsRadar } from "./components/BillsRadar";
 import { findRecurring, nameKey, type RecurringCandidate } from "./lib/recurring";
-import { asBill, describeCadence, linkExpenses, matchingOccurrences, nextDue, RepeatContext, useRecurringExpenses, type Cadence } from "./lib/recurringExpenses";
+import { asBill, BANK_SOURCES, describeCadence, linkExpenses, matchingOccurrences, nextDue, RepeatContext, useRecurringExpenses, type Cadence } from "./lib/recurringExpenses";
 import { billsOutlook, committedUntil, useBillPrefs } from "./lib/bills";
 import { CardsContext, useCardSettings } from "./lib/cards";
 import { CardRewards } from "./components/CardRewards";
@@ -249,8 +249,12 @@ function Home() {
     if (catchingUp.current) return;
     catchingUp.current = true;
     try {
-      const { added, toInbox } = await recurringApi.catchUp();
-      if (!added) return;
+      // Recent confirmed charges, so tracked bank charges can be labelled as they arrive.
+      const { added, toInbox, labelled } = await recurringApi.catchUp(expenses);
+      if (!added) {
+        if (labelled) await refresh(); // show the new 🔁 labels
+        return;
+      }
       await refresh();
       feedback("log");
       const s = added === 1 ? "" : "s";
@@ -261,14 +265,14 @@ function Home() {
       catchingUp.current = false;
     }
   }
+  // Runs whenever the ledger reloads (on open, on returning to the app, after logging), so
+  // due ones are added and new bank charges for tracked ones are labelled straight away.
+  // Settles quickly: a second pass finds nothing new to add or label.
   useEffect(() => {
     if (loading) return;
     void runCatchUp();
-    const onShow = () => document.visibilityState === "visible" && void runCatchUp();
-    document.addEventListener("visibilitychange", onShow);
-    return () => document.removeEventListener("visibilitychange", onShow);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once the ledger has loaded
-  }, [loading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runCatchUp reads the latest state
+  }, [loading, expenses]);
 
   /**
    * "Repeat monthly" from the expense editor: adds future ones starting after this one, and
@@ -276,6 +280,8 @@ function Home() {
    */
   async function repeatExpense(e: Expense, cadence: Cadence) {
     const day = dateValue(new Date(e.spent_at));
+    // Charges from bank alerts keep arriving by themselves: track, don't add copies.
+    const autoAdd = !BANK_SOURCES.includes(e.source);
     try {
       const rule = await recurringApi.save({
         item: e.item,
@@ -286,6 +292,7 @@ function Home() {
         end_date: null,
         to_inbox: false,
         paused: false,
+        auto_add: autoAdd,
         logged_through: day,
       });
       // The year of history plus the live window, so older charges can be labelled too.

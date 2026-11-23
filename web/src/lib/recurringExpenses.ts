@@ -31,7 +31,13 @@ export type RecurringExpense = {
   end_date: string | null;
   to_inbox: boolean;
   paused: boolean;
-  /** Every due date up to and including this one has been handled. */
+  /**
+   * true: the app adds each one when due. false: your bank alerts bring it in already, so
+   * the app only labels matching charges as they arrive (and still shows it on the radar).
+   */
+  auto_add: boolean;
+  /** Every due date up to and including this one has been handled (or, when tracking, the
+   *  date of the latest charge labelled). */
   logged_through: string | null;
 };
 
@@ -121,16 +127,36 @@ export function asBill(rule: RecurringExpense): RecurringCandidate | null {
  * One per date, since a recurring expense has at most one charge a day.
  */
 export function matchingOccurrences(original: Expense, history: Expense[]) {
-  const names = new Set([nameKey(original.item), nameKey(original.merchant ?? "")].filter(Boolean));
-  const byDate = new Map<string, Expense>([[dateValue(new Date(original.spent_at)), original]]);
+  return matches(
+    { item: original.item, merchant: original.merchant, amount: original.amount },
+    history.filter((e) => e.id !== original.id),
+    null,
+    [{ id: original.id, day: dateValue(new Date(original.spent_at)) }],
+  );
+}
+
+/**
+ * Confirmed, unlinked expenses with the same name (item or bank merchant) and an amount
+ * within 25%, dated after `after` (if given); one per date, oldest first. `seed` rows count
+ * as already taken.
+ */
+function matches(
+  like: { item: string; merchant?: string | null; amount: number },
+  history: Expense[],
+  after: string | null,
+  seed: { id: string; day: string }[] = [],
+) {
+  const names = new Set([nameKey(like.item), nameKey(like.merchant ?? "")].filter(Boolean));
+  const byDate = new Map(seed.map((s) => [s.day, s.id]));
   for (const e of history) {
-    if (e.id === original.id || e.recurring_id || e.status !== "confirmed") continue;
+    if (e.recurring_id || e.status !== "confirmed") continue;
     if (!names.has(nameKey(e.item)) && !(e.merchant && names.has(nameKey(e.merchant)))) continue;
-    if (Math.abs(e.amount - original.amount) > original.amount * 0.25) continue;
+    if (Math.abs(e.amount - like.amount) > like.amount * 0.25) continue;
     const day = dateValue(new Date(e.spent_at));
-    if (!byDate.has(day)) byDate.set(day, e);
+    if ((after && day <= after) || byDate.has(day)) continue;
+    byDate.set(day, e.id);
   }
-  return [...byDate.entries()].map(([day, e]) => ({ id: e.id, day }));
+  return [...byDate.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([day, id]) => ({ id, day }));
 }
 
 /** Label expenses as belonging to a recurring expense (each with its own date). */
@@ -185,16 +211,25 @@ export function useRecurringExpenses() {
   );
 
   /**
-   * Add every due date since the last catch-up. Returns how many were added and how many
-   * went to the Inbox. Safe to call often: dates already handled are skipped.
+   * Add every due date since the last catch-up, and label newly arrived bank charges for
+   * the ones you only track. Returns how many were added and how many went to the Inbox.
+   * Safe to call often: dates already handled are skipped.
    */
-  const catchUp = useCallback(async () => {
+  const catchUp = useCallback(async (history: Expense[] = []) => {
     const today = dateValue();
     const current = await load();
     let added = 0;
     let toInbox = 0;
+    let labelled = 0;
     for (const rule of current) {
       if (rule.paused) continue;
+      if (!rule.auto_add) {
+        const found = matches(rule, history, rule.logged_through);
+        if (!found.length) continue;
+        labelled += await linkExpenses(rule.id, found);
+        await supabase.from("recurring_expenses").update({ logged_through: found[found.length - 1].day }).eq("id", rule.id);
+        continue;
+      }
       const after = rule.logged_through ?? fmt(...(([y, m, d]) => [y, m - 1, d - 1] as const)(parse(rule.start_date)));
       const dates = dueDates(rule, after, today);
       if (!dates.length) continue;
@@ -220,8 +255,8 @@ export function useRecurringExpenses() {
       if (rule.to_inbox) toInbox += n;
       await supabase.from("recurring_expenses").update({ logged_through: dates[dates.length - 1] }).eq("id", rule.id);
     }
-    if (added) await load();
-    return { added, toInbox };
+    if (added || labelled) await load();
+    return { added, toInbox, labelled };
   }, [load]);
 
   return { rules, loaded, save, remove, catchUp };
