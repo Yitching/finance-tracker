@@ -26,6 +26,7 @@ const blank = (): RecurringDraft => ({
   end_date: null,
   to_inbox: false,
   paused: false,
+  auto_add: true,
 });
 
 const field = "w-full rounded-xl bg-bg px-3 py-2 text-sm outline-none ring-1 ring-line focus:ring-accent";
@@ -94,8 +95,8 @@ export function RecurringSettings({
         <h2 className="text-lg font-semibold">🔁 Recurring expenses</h2>
         <p className="mt-1 text-sm text-ink-soft">
           Rent, insurance, subscriptions. Each one is added on its due date, the next time you open the app, and shows on
-          the Bills radar. Deleting one that was added doesn't bring it back. Skip ones your bank alerts already capture, or
-          they'd count twice.
+          the Bills radar. Deleting one that was added doesn't bring it back. For ones your bank alerts already capture, turn
+          off "Add it automatically" so they're labelled instead of counted twice.
         </p>
       </div>
 
@@ -113,7 +114,7 @@ export function RecurringSettings({
                     <span className="block truncate font-medium">{r.item}</span>
                     <span className="block truncate text-xs text-ink-soft">
                       {describeCadence(r)}
-                      {r.to_inbox && " · to Inbox"}
+                      {!r.auto_add ? " · from bank alerts" : r.to_inbox && " · to Inbox"}
                     </span>
                     <span className="block text-xs text-ink-faint">
                       {r.paused ? "Paused" : next ? `Next: ${short(next)}` : "Ended"}
@@ -187,14 +188,27 @@ export function RecurringSettings({
             </label>
           </div>
           <p className="text-xs text-ink-faint">
-            {describeCadence(editing)}. A date in the past adds the ones you've missed since then.
+            {describeCadence(editing)}.
+            {editing.auto_add ? " A date in the past adds the ones you've missed since then." : " Matching bank charges are labelled 🔁 as they arrive."}
           </p>
+          <Toggle
+            label="Add it automatically"
+            hint={
+              editing.auto_add
+                ? "The app adds each one when it's due."
+                : "Off: your bank alerts already bring it in, so matching charges are just labelled 🔁."
+            }
+            on={editing.auto_add}
+            onChange={(auto_add) => setEditing({ ...editing, auto_add })}
+          />
+          {editing.auto_add && (
           <Toggle
             label="Send to Inbox to confirm"
             hint="For bills whose amount changes, like electricity."
             on={editing.to_inbox}
             onChange={(to_inbox) => setEditing({ ...editing, to_inbox })}
           />
+          )}
           {editing.id && (
             <Toggle label="Paused" on={editing.paused} onChange={(paused) => setEditing({ ...editing, paused })} />
           )}

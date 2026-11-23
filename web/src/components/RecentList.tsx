@@ -72,7 +72,14 @@ export function RecentList({ expenses, onDelete, onUpdate, limit }: Props) {
                       {CATEGORY_EMOJI[e.category] ?? "📦"}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{e.item}</span>
+                      <span className="block truncate font-medium">
+                        {e.recurring_id && (
+                          <span className="mr-1" title="Recurring" aria-label="Recurring">
+                            🔁
+                          </span>
+                        )}
+                        {e.item}
+                      </span>
                       {e.note && <span className="block truncate text-xs text-ink-soft">📝 {e.note}</span>}
                     </span>
                     <span className="font-bold tabular-nums">{money(e.amount)}</span>
@@ -108,7 +115,9 @@ function EditRow({
   const initialCard = expense.card ?? cardFor(expense, cards)?.id ?? "none";
   const [card, setCard] = useState(initialCard);
   const repeat = useContext(RepeatContext);
-  const canRepeat = !!repeat && !expense.recurring_id && !BANK_SOURCES.includes(expense.source);
+  const canRepeat = !!repeat && !expense.recurring_id;
+  // Bank charges arrive by themselves: mark them as recurring instead of adding copies.
+  const fromBank = BANK_SOURCES.includes(expense.source);
 
   return (
     <li className="space-y-3 bg-bg/60 px-4 py-3">
@@ -155,7 +164,7 @@ function EditRow({
       ) : (
         canRepeat && (
           <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Repeat this expense">
-            <span className="text-xs text-ink-soft">🔁 Repeat</span>
+            <span className="text-xs text-ink-soft">{fromBank ? "🔁 Mark as recurring" : "🔁 Repeat"}</span>
             {(["weekly", "monthly", "yearly"] as const).map((c) => (
               <button
                 key={c}
