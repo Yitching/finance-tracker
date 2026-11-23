@@ -28,7 +28,8 @@ import { SafeToSpend } from "./components/SafeToSpend";
 import { PaceChart } from "./components/PaceChart";
 import { SpendingCalendar } from "./components/SpendingCalendar";
 import { BillsRadar } from "./components/BillsRadar";
-import { findRecurring } from "./lib/recurring";
+import { findRecurring, nameKey, type RecurringCandidate } from "./lib/recurring";
+import { asBill, describeCadence, nextDue, RepeatContext, useRecurringExpenses, type Cadence } from "./lib/recurringExpenses";
 import { billsOutlook, committedUntil, useBillPrefs } from "./lib/bills";
 import { CardsContext, useCardSettings } from "./lib/cards";
 import { CardRewards } from "./components/CardRewards";
@@ -80,6 +81,7 @@ function Home() {
   const [pots, setPots, addToPot] = usePots();
   const [cardSettings, setCardSettings] = useCardSettings();
   const [categoryColours, setCategoryColours] = useCategoryColours();
+  const recurringApi = useRecurringExpenses();
   // The Spending screen's period ("YYYY-MM"); null = the one you're in now.
   const [periodKey, setPeriodKey] = useState<string | null>(null);
   const period = useMemo(
@@ -179,8 +181,12 @@ function Home() {
   const recurring = useMemo(() => {
     const windowStart = expenses.length ? Math.min(...expenses.map((e) => new Date(e.spent_at).getTime())) : Infinity;
     const older = insightExpenses.filter((e) => new Date(e.spent_at).getTime() < windowStart);
-    return findRecurring([...older, ...expenses]);
-  }, [insightExpenses, expenses]);
+    const detected = findRecurring([...older, ...expenses]);
+    // Recurring expenses you set up are exact; drop the guesses that are the same thing.
+    const yours = recurringApi.rules.map(asBill).filter((b): b is RecurringCandidate => b !== null);
+    const yourNames = new Set(recurringApi.rules.map((r) => nameKey(r.item)));
+    return [...yours, ...detected.filter((d) => !yourNames.has(d.key))];
+  }, [insightExpenses, expenses, recurringApi.rules]);
   const hiddenBills = useMemo(
     () => recurring.filter((b) => billPrefs.prefs.hidden.includes(b.key)),
     [recurring, billPrefs.prefs.hidden],
@@ -236,6 +242,60 @@ function Home() {
   }), [historyExpenses, filters]);
   const hasFilters = Object.values(filters).some(Boolean);
   const visiblePeriodExpenses = useMemo(() => periodExpenses.filter((e) => filteredHistory.includes(e)), [periodExpenses, filteredHistory]);
+
+  // Recurring expenses: add whatever has come due, when the app opens or comes back.
+  const catchingUp = useRef(false);
+  async function runCatchUp() {
+    if (catchingUp.current) return;
+    catchingUp.current = true;
+    try {
+      const { added, toInbox } = await recurringApi.catchUp();
+      if (!added) return;
+      await refresh();
+      feedback("log");
+      const s = added === 1 ? "" : "s";
+      showToast({
+        text: toInbox === added ? `🔁 ${added} recurring expense${s} to confirm in your Inbox` : `🔁 Added ${added} recurring expense${s}`,
+      });
+    } finally {
+      catchingUp.current = false;
+    }
+  }
+  useEffect(() => {
+    if (loading) return;
+    void runCatchUp();
+    const onShow = () => document.visibilityState === "visible" && void runCatchUp();
+    document.addEventListener("visibilitychange", onShow);
+    return () => document.removeEventListener("visibilitychange", onShow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once the ledger has loaded
+  }, [loading]);
+
+  /** "Repeat monthly" from the expense editor: future ones only, starting after this one. */
+  async function repeatExpense(e: Expense, cadence: Cadence) {
+    const day = dateValue(new Date(e.spent_at));
+    try {
+      const rule = await recurringApi.save({
+        item: e.item,
+        amount: e.amount,
+        category: e.category,
+        cadence,
+        start_date: day,
+        end_date: null,
+        to_inbox: false,
+        paused: false,
+        logged_through: day,
+      });
+      feedback("log");
+      const next = nextDue(rule);
+      showToast({
+        text: `🔁 ${e.item}: ${describeCadence(rule).toLowerCase()}${next ? `, next on ${dayLabel(onDay(next).toISOString())}` : ""}`,
+        undo: () => void recurringApi.remove(rule.id),
+      });
+    } catch {
+      feedback("error");
+      showToast({ text: "Couldn't set that up. Has the latest database migration been pushed?" });
+    }
+  }
 
   /** Midday on the picked day as ISO, or undefined for "now". */
   const spentAt = (d: string | null) => (d ? onDay(d).toISOString() : undefined);
@@ -441,6 +501,7 @@ function Home() {
   if (view !== "home") {
     return (
       <CardsContext.Provider value={cardSettings.cards}>
+      <RepeatContext.Provider value={repeatExpense}>
       <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
         {view === "spending" ? (
           <div className="flex flex-1 flex-col space-y-5 px-4 pb-24">
@@ -527,6 +588,7 @@ function Home() {
                 onHide={billPrefs.hide}
                 onUnhide={billPrefs.unhide}
                 onSeen={billPrefs.markSeen}
+                onManageRecurring={() => open("settings")}
               />
             </Insights></div>
         ) : view === "cards" ? (
@@ -568,6 +630,12 @@ function Home() {
             onPotsChange={(p) => setPots(p)}
             cardSettings={cardSettings}
             onCardSettingsChange={setCardSettings}
+            recurringExpenses={recurringApi.rules}
+            onRecurringSave={async (draft) => {
+              await recurringApi.save(draft);
+              void runCatchUp(); // a past first date adds the ones already due
+            }}
+            onRecurringDelete={recurringApi.remove}
             categoryColours={categoryColours}
             onCategoryColoursChange={setCategoryColours}
             onStatementDayChange={(d) => {
@@ -582,12 +650,14 @@ function Home() {
           </div>
         )}
       </div>
+      </RepeatContext.Provider>
       </CardsContext.Provider>
     );
   }
 
   return (
     <CardsContext.Provider value={cardSettings.cards}>
+      <RepeatContext.Provider value={repeatExpense}>
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
       <header className="@container flex items-center justify-between gap-3 px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
         <div className="min-w-0">
@@ -700,6 +770,7 @@ function Home() {
         </div>
       </div>
     </div>
-    </CardsContext.Provider>
+    </RepeatContext.Provider>
+      </CardsContext.Provider>
   );
 }

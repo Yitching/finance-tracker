@@ -20,7 +20,9 @@ export type RecurringCandidate = {
 };
 
 const DAY = 86_400_000;
-function keyOf(e: Expense) { const value = e.merchant?.trim() || e.item; return value.toLowerCase().replace(/\d+/g, " ").replace(/[^a-z]+/g, " ").trim(); }
+/** Grouping key for a merchant or item name: lower case, digits and punctuation dropped. */
+export function nameKey(value: string) { return value.toLowerCase().replace(/\d+/g, " ").replace(/[^a-z]+/g, " ").trim(); }
+function keyOf(e: Expense) { return nameKey(e.merchant?.trim() || e.item); }
 function median(values: number[]) { const sorted = [...values].sort((a, b) => a - b); return sorted[Math.floor(sorted.length / 2)]; }
 function cadence(days: number) { if (days >= 5 && days <= 9) return "Weekly"; if (days >= 24 && days <= 38) return "Monthly"; if (days >= 75 && days <= 110) return "Quarterly"; return `About every ${Math.round(days)} days`; }
 
