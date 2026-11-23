@@ -29,7 +29,7 @@ import { PaceChart } from "./components/PaceChart";
 import { SpendingCalendar } from "./components/SpendingCalendar";
 import { BillsRadar } from "./components/BillsRadar";
 import { findRecurring, nameKey, type RecurringCandidate } from "./lib/recurring";
-import { asBill, describeCadence, nextDue, RepeatContext, useRecurringExpenses, type Cadence } from "./lib/recurringExpenses";
+import { asBill, describeCadence, linkExpenses, matchingOccurrences, nextDue, RepeatContext, useRecurringExpenses, type Cadence } from "./lib/recurringExpenses";
 import { billsOutlook, committedUntil, useBillPrefs } from "./lib/bills";
 import { CardsContext, useCardSettings } from "./lib/cards";
 import { CardRewards } from "./components/CardRewards";
@@ -270,7 +270,10 @@ function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once the ledger has loaded
   }, [loading]);
 
-  /** "Repeat monthly" from the expense editor: future ones only, starting after this one. */
+  /**
+   * "Repeat monthly" from the expense editor: adds future ones starting after this one, and
+   * labels this one and earlier matching ones (same name, similar amount) as recurring.
+   */
   async function repeatExpense(e: Expense, cadence: Cadence) {
     const day = dateValue(new Date(e.spent_at));
     try {
@@ -285,11 +288,19 @@ function Home() {
         paused: false,
         logged_through: day,
       });
+      // The year of history plus the live window, so older charges can be labelled too.
+      const history = new Map([...insightExpenses, ...expenses].map((x) => [x.id, x]));
+      const linked = await linkExpenses(rule.id, matchingOccurrences(e, [...history.values()]));
+      await refresh();
       feedback("log");
       const next = nextDue(rule);
+      const past = linked - 1;
       showToast({
-        text: `🔁 ${e.item}: ${describeCadence(rule).toLowerCase()}${next ? `, next on ${dayLabel(onDay(next).toISOString())}` : ""}`,
-        undo: () => void recurringApi.remove(rule.id),
+        text: `🔁 ${e.item}: ${describeCadence(rule).toLowerCase()}${next ? `, next on ${dayLabel(onDay(next).toISOString())}` : ""}${
+          past > 0 ? ` · ${past} past one${past === 1 ? "" : "s"} labelled` : ""
+        }`,
+        // Deleting the recurring expense unlinks everything it labelled (on delete set null).
+        undo: () => void recurringApi.remove(rule.id).then(refresh),
       });
     } catch {
       feedback("error");

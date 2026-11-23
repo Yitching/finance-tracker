@@ -72,7 +72,14 @@ export function RecentList({ expenses, onDelete, onUpdate, limit }: Props) {
                       {CATEGORY_EMOJI[e.category] ?? "📦"}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{e.item}</span>
+                      <span className="block truncate font-medium">
+                        {e.recurring_id && (
+                          <span className="mr-1" title="Recurring" aria-label="Recurring">
+                            🔁
+                          </span>
+                        )}
+                        {e.item}
+                      </span>
                       {e.note && <span className="block truncate text-xs text-ink-soft">📝 {e.note}</span>}
                     </span>
                     <span className="font-bold tabular-nums">{money(e.amount)}</span>

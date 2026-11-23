@@ -1,7 +1,7 @@
 import { createContext, useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { dateValue, onDay } from "./money";
-import type { RecurringCandidate } from "./recurring";
+import { nameKey, type RecurringCandidate } from "./recurring";
 import type { Expense } from "./types";
 
 /** Charges that arrive from your bank by themselves; repeating one would count it twice. */
@@ -113,6 +113,34 @@ export function asBill(rule: RecurringExpense): RecurringCandidate | null {
     nextDate: onDay(next).toISOString(),
     occurrences: 0,
   };
+}
+
+/**
+ * The expense you tapped "Repeat" on, plus earlier ones that look like the same thing:
+ * same name (item or bank merchant), amount within 25%, confirmed, not already linked.
+ * One per date, since a recurring expense has at most one charge a day.
+ */
+export function matchingOccurrences(original: Expense, history: Expense[]) {
+  const names = new Set([nameKey(original.item), nameKey(original.merchant ?? "")].filter(Boolean));
+  const byDate = new Map<string, Expense>([[dateValue(new Date(original.spent_at)), original]]);
+  for (const e of history) {
+    if (e.id === original.id || e.recurring_id || e.status !== "confirmed") continue;
+    if (!names.has(nameKey(e.item)) && !(e.merchant && names.has(nameKey(e.merchant)))) continue;
+    if (Math.abs(e.amount - original.amount) > original.amount * 0.25) continue;
+    const day = dateValue(new Date(e.spent_at));
+    if (!byDate.has(day)) byDate.set(day, e);
+  }
+  return [...byDate.entries()].map(([day, e]) => ({ id: e.id, day }));
+}
+
+/** Label expenses as belonging to a recurring expense (each with its own date). */
+export async function linkExpenses(ruleId: string, rows: { id: string; day: string }[]) {
+  let linked = 0;
+  for (const r of rows) {
+    const { error } = await supabase.from("expenses").update({ recurring_id: ruleId, recurring_on: r.day }).eq("id", r.id);
+    if (!error) linked++;
+  }
+  return linked;
 }
 
 const toRule = (r: RecurringExpense): RecurringExpense => ({ ...r, amount: Number(r.amount) });
