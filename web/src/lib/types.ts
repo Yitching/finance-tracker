@@ -37,6 +37,9 @@ export type Expense = {
   note: string | null;
   /** Which of your cards paid, picked by hand (a card id from Settings → Cards). */
   card?: string | null;
+  /** Added by a recurring expense: which one, and for which due date. */
+  recurring_id?: string | null;
+  recurring_on?: string | null;
   created_at: string;
 };
 

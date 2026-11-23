@@ -18,6 +18,8 @@ import { DEFAULT_BUDGET } from "../lib/settings";
 import { emojiForCategory, SAVE_EMOJIS, type Pot, type PotKind } from "../lib/pots";
 import type { CardSettings } from "../lib/cards";
 import { CardsSettings } from "./CardsSettings";
+import { RecurringSettings } from "./RecurringSettings";
+import type { RecurringDraft, RecurringExpense } from "../lib/recurringExpenses";
 import { FeedbackSettings } from "./FeedbackSettings";
 import { CategoryColours } from "./CategoryColours";
 import type { PaletteColour } from "../lib/categoryStyle";
@@ -69,6 +71,9 @@ export function Settings({
   onCardSettingsChange,
   categoryColours,
   onCategoryColoursChange,
+  recurringExpenses,
+  onRecurringSave,
+  onRecurringDelete,
 }: {
   onBack: () => void;
   onCaptured: () => void;
@@ -86,6 +91,9 @@ export function Settings({
   onCardSettingsChange: (next: CardSettings) => Promise<void>;
   categoryColours: Record<string, PaletteColour>;
   onCategoryColoursChange: (next: Record<string, PaletteColour>) => Promise<void>;
+  recurringExpenses: RecurringExpense[];
+  onRecurringSave: (draft: RecurringDraft) => Promise<void>;
+  onRecurringDelete: (id: string) => Promise<void>;
 }) {
   const [info, setInfo] = useState<TokenInfo | null | undefined>(undefined);
   const [token, setToken] = useState<string | null>(() => savedToken());
@@ -600,6 +608,8 @@ export function Settings({
         </button>
         {potsError && <p className="text-sm text-danger">{potsError}</p>}
       </section>
+
+      <RecurringSettings rules={recurringExpenses} onSave={onRecurringSave} onDelete={onRecurringDelete} />
 
       <CardsSettings settings={cardSettings} onSave={onCardSettingsChange} />
 

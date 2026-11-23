@@ -5,6 +5,7 @@ import { categoryChip } from "../lib/categoryStyle";
 import { CategoryPicker } from "./CategoryPicker";
 import { DayPicker } from "./DayPicker";
 import { CardsContext, cardFor } from "../lib/cards";
+import { BANK_SOURCES, RepeatContext } from "../lib/recurringExpenses";
 
 type Props = {
   expenses: Expense[];
@@ -106,6 +107,8 @@ function EditRow({
   // "none" = you said no card, which also overrides a match from the bank alert.
   const initialCard = expense.card ?? cardFor(expense, cards)?.id ?? "none";
   const [card, setCard] = useState(initialCard);
+  const repeat = useContext(RepeatContext);
+  const canRepeat = !!repeat && !expense.recurring_id && !BANK_SOURCES.includes(expense.source);
 
   return (
     <li className="space-y-3 bg-bg/60 px-4 py-3">
@@ -146,6 +149,27 @@ function EditRow({
             </button>
           ))}
         </div>
+      )}
+      {expense.recurring_id ? (
+        <p className="text-xs text-ink-soft">🔁 Added by a recurring expense. Change it in Settings → Recurring expenses.</p>
+      ) : (
+        canRepeat && (
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Repeat this expense">
+            <span className="text-xs text-ink-soft">🔁 Repeat</span>
+            {(["weekly", "monthly", "yearly"] as const).map((c) => (
+              <button
+                key={c}
+                onClick={() => {
+                  onDone();
+                  void repeat(expense, c);
+                }}
+                className="rounded-full bg-card px-3 py-1.5 text-xs font-bold capitalize ring-1 ring-line transition active:scale-95"
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        )
       )}
       <DayPicker
         value={day}

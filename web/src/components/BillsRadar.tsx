@@ -22,6 +22,7 @@ export function BillsRadar({
   onHide,
   onUnhide,
   onSeen,
+  onManageRecurring,
 }: {
   outlook: BillsOutlook;
   /** Recurring charges you hid ("not a bill" or stopped). */
@@ -33,6 +34,8 @@ export function BillsRadar({
   onHide: (key: string) => void;
   onUnhide: (key: string) => void;
   onSeen: (key: string, amount: number) => void;
+  /** Open Settings → Recurring expenses. */
+  onManageRecurring?: () => void;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [showHidden, setShowHidden] = useState(false);
@@ -170,12 +173,25 @@ export function BillsRadar({
                 </button>
                 {openKey === b.key && (
                   <div className="animate-fade-up -mt-1 flex items-center gap-3 pb-3 pl-12 text-sm">
-                    <span className="min-w-0 flex-1 text-ink-soft">
-                      Seen {b.occurrences} times, last on {shortDate(new Date(b.lastDate))}.
-                    </span>
-                    <button onClick={() => onHide(b.key)} className="shrink-0 font-bold text-accent">
-                      Not a bill
-                    </button>
+                    {b.key.startsWith("rule:") ? (
+                      <>
+                        <span className="min-w-0 flex-1 text-ink-soft">🔁 One of your recurring expenses.</span>
+                        {onManageRecurring && (
+                          <button onClick={onManageRecurring} className="shrink-0 font-bold text-accent">
+                            Edit
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span className="min-w-0 flex-1 text-ink-soft">
+                          Seen {b.occurrences} times, last on {shortDate(new Date(b.lastDate))}.
+                        </span>
+                        <button onClick={() => onHide(b.key)} className="shrink-0 font-bold text-accent">
+                          Not a bill
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </li>
@@ -213,6 +229,14 @@ export function BillsRadar({
       <p className="px-1 text-xs text-ink-faint">
         Monthly and longer bills are held back from Safe to spend. Hidden bills and seen price changes are kept on this
         device.
+        {onManageRecurring && (
+          <>
+            {" "}
+            <button onClick={onManageRecurring} className="font-bold text-accent">
+              Add a recurring expense
+            </button>
+          </>
+        )}
       </p>
     </div>
   );
