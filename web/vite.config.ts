@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.png", "apple-touch-icon.png"],
+      includeAssets: ["favicon-coin.png", "apple-touch-icon-coin.png"],
       manifest: {
         name: "Lazy Ledger",
         short_name: "Ledger",
@@ -17,12 +17,12 @@ export default defineConfig({
         start_url: "/",
         display: "standalone",
         orientation: "portrait",
-        background_color: "#f6f3ee",
-        theme_color: "#0f8a6a",
+        background_color: "#fff3e6",
+        theme_color: "#fff3e6",
         icons: [
-          { src: "pwa-192.png", sizes: "192x192", type: "image/png" },
-          { src: "pwa-512.png", sizes: "512x512", type: "image/png" },
-          { src: "pwa-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: "icon-coin-192.png", sizes: "192x192", type: "image/png" },
+          { src: "icon-coin-512.png", sizes: "512x512", type: "image/png" },
+          { src: "icon-coin-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
         // Long-press the home-screen icon on Android
         shortcuts: [{ name: "Quick add", short_name: "Add", url: "/?add=1" }],

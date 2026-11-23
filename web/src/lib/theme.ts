@@ -12,10 +12,10 @@ export function savedTheme(): Theme {
   }
 }
 
-const BAR = { light: "#0f8a6a", dark: "#000000" };
+const BAR = { light: "#fff3e6", dark: "#000000" };
 const prefersDark = () => window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
 
-/** Phone status bar colour: teal in light mode, black in dark (matching the OLED background). */
+/** Phone status bar colour: peach in light mode, black in dark, each matching the background. */
 export function syncStatusBar() {
   const set = document.documentElement.dataset.theme;
   const dark = set === "dark" || (set !== "light" && prefersDark());

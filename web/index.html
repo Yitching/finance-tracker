@@ -2,10 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href="/favicon-coin.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-coin.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
-    <meta name="theme-color" content="#0f8a6a" />
+    <meta name="theme-color" content="#fff3e6" />
     <meta name="description" content="Expense tracking for people who hate expense tracking." />
     <title>Lazy Ledger</title>
     <script>
@@ -13,7 +13,7 @@
       try {
         var t = localStorage.getItem("lazy-ledger.theme");
         if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
-        // Status bar: black in dark mode, teal in light (kept in step by src/lib/theme.ts).
+        // Status bar: black in dark mode, peach in light (kept in step by src/lib/theme.ts).
         var dark = t === "dark" || (t !== "light" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
         if (dark) document.querySelector('meta[name="theme-color"]').setAttribute("content", "#000000");
       } catch (e) {}
