@@ -33,6 +33,7 @@ import { asBill, BANK_SOURCES, CadenceContext, describeCadence, linkExpenses, ma
 import { billsOutlook, committedUntil, useBillPrefs } from "./lib/bills";
 import { CardsContext, useCardSettings } from "./lib/cards";
 import { CardRewards } from "./components/CardRewards";
+import { InsightTeaser } from "./components/InsightTeaser";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -704,6 +705,13 @@ function Home() {
             )}
           </span>
           <button
+            onClick={() => open("insights")}
+            aria-label="Insights"
+            className="grid size-10 place-items-center rounded-full bg-card text-xl shadow-sm ring-1 ring-line transition active:scale-95"
+          >
+            ✨
+          </button>
+          <button
             onClick={() => open("cards")}
             aria-label="Cards: which card to use"
             className="grid size-10 place-items-center rounded-full bg-card text-xl shadow-sm ring-1 ring-line transition active:scale-95"
@@ -762,6 +770,12 @@ function Home() {
             </div>
             <div className="animate-fade-up" style={{ animationDelay: "140ms" }}>
               <SummaryStrip expenses={expenses} onOpen={() => open("spending")} />
+            </div>
+            <div className="animate-fade-up" style={{ animationDelay: "180ms" }}>
+              <InsightTeaser
+                nextBill={outlook.upcoming[0] ? { name: outlook.upcoming[0].bill.name, amount: outlook.upcoming[0].amount, date: outlook.upcoming[0].date } : null}
+                onOpen={() => open("insights")}
+              />
             </div>
             {(recent.length > 0 || expenses.length === 0) && (
               <RecentList expenses={recent} onDelete={handleDelete} onUpdate={update} limit={80} />

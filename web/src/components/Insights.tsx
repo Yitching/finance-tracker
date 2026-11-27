@@ -1,19 +1,9 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { supabase } from "../lib/supabase";
+import { useMemo, type ReactNode } from "react";
+import { useInsight } from "../lib/insight";
 import { money, startOfDay } from "../lib/money";
 import { periodRange } from "../lib/period";
 import { CATEGORY_EMOJI, type Expense } from "../lib/types";
 import { categoryBar, categoryChip } from "../lib/categoryStyle";
-
-type InsightResponse = {
-  period: { key: string; from: string; to: string; daysElapsed: number; daysTotal: number; ongoing: boolean };
-  totals: { thisPeriod: number; sameTimeLastPeriod: number; lastPeriodFull: number; projectedThisPeriod: number | null };
-  headline: string;
-  detail: string;
-  highlights: { text: string; tone: "up" | "down" | "neutral" }[];
-  tip: string | null;
-  generatedAt: string | null;
-};
 
 function LocalAnalytics({ expenses }: { expenses: Expense[] }) {
   const { days, total, average, topCategories } = useMemo(() => {
@@ -36,9 +26,7 @@ const TONE = { up: { mark: "▲", className: "text-danger" }, down: { mark: "▼
 
 /** The AI headline. Loads on open; the server caches it until your data or the day changes. */
 function InsightCard() {
-  const [result, setResult] = useState<InsightResponse | null>(null); const [busy, setBusy] = useState(true); const [error, setError] = useState<string | null>(null);
-  const load = useCallback(async (refresh: boolean) => { setBusy(true); setError(null); const { data, error: invokeError } = await supabase.functions.invoke<InsightResponse>("spending-insights", { body: { refresh } }); if (invokeError || !data || typeof data.headline !== "string") setError("Couldn't load your insight. Please try again."); else setResult(data); setBusy(false); }, []);
-  useEffect(() => { void load(false); }, [load]);
+  const { result, busy, error, load } = useInsight();
   const p = result?.period; const t = result?.totals;
   return <section className="animate-fade-up rounded-3xl bg-card p-5 shadow-sm ring-1 ring-line">
     <div className="flex items-center gap-2 text-xs text-ink-faint"><span className="flex-1">{p ? `${periodRange({ key: p.key, from: new Date(p.from), to: new Date(p.to) })}${p.ongoing ? ` · day ${p.daysElapsed} of ${p.daysTotal}` : ""}` : "This period"}</span><button onClick={() => void load(true)} disabled={busy} className="font-medium text-accent disabled:opacity-50">{busy ? "Thinking…" : "Refresh"}</button></div>
