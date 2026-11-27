@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DEFAULT_LAYOUT, HOME_SECTIONS, type HomeLayout, type HomeSectionId } from "../lib/homeLayout";
+import { DEFAULT_LAYOUT, HOME_SECTIONS, moveSection, toggleSection, type HomeLayout, type HomeSectionId } from "../lib/homeLayout";
 
 const LABELS = Object.fromEntries(HOME_SECTIONS.map((s) => [s.id, s])) as Record<
   HomeSectionId,
@@ -13,9 +13,12 @@ const LABELS = Object.fromEntries(HOME_SECTIONS.map((s) => [s.id, s])) as Record
 export function HomeLayoutSettings({
   layout,
   onChange,
+  onArrange,
 }: {
   layout: HomeLayout;
   onChange: (next: HomeLayout) => Promise<void>;
+  /** Open Home in edit mode, to arrange it while seeing the real screen. */
+  onArrange: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const changed = JSON.stringify(layout) !== JSON.stringify(DEFAULT_LAYOUT);
@@ -27,18 +30,8 @@ export function HomeLayoutSettings({
     );
   }
 
-  function move(index: number, by: -1 | 1) {
-    const order = [...layout.order];
-    const to = index + by;
-    if (to < 0 || to >= order.length) return;
-    [order[index], order[to]] = [order[to], order[index]];
-    save({ ...layout, order });
-  }
-
-  function toggle(id: HomeSectionId) {
-    const hidden = layout.hidden.includes(id) ? layout.hidden.filter((h) => h !== id) : [...layout.hidden, id];
-    save({ ...layout, hidden });
-  }
+  const move = (index: number, by: -1 | 1) => save(moveSection(layout, layout.order[index], by));
+  const toggle = (id: HomeSectionId) => save(toggleSection(layout, id));
 
   return (
     <section className="space-y-3 rounded-3xl bg-card p-5 ring-1 ring-line">
@@ -54,6 +47,13 @@ export function HomeLayoutSettings({
         Put Home's sections in the order you like, and hide the ones you don't use. The Inbox banner always stays at the
         top when charges need checking.
       </p>
+      <button
+        onClick={onArrange}
+        className="bg-pop-gradient w-full rounded-xl px-4 py-2.5 text-sm font-bold text-white shadow-md transition active:scale-[0.98]"
+      >
+        Arrange on Home screen
+      </button>
+      <p className="text-xs text-ink-faint">Or use the quick list below.</p>
       <ol className="space-y-2">
         {layout.order.map((id, i) => {
           const s = LABELS[id];

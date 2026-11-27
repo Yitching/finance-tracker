@@ -88,3 +88,21 @@ export function useHomeLayout() {
 
   return [layout, save] as const;
 }
+
+/** Move a section one place up (-1) or down (1). */
+export function moveSection(layout: HomeLayout, id: HomeSectionId, by: -1 | 1): HomeLayout {
+  const order = [...layout.order];
+  const from = order.indexOf(id);
+  const to = from + by;
+  if (from < 0 || to < 0 || to >= order.length) return layout;
+  [order[from], order[to]] = [order[to], order[from]];
+  return { ...layout, order };
+}
+
+/** Show a hidden section, or hide a shown one. */
+export function toggleSection(layout: HomeLayout, id: HomeSectionId): HomeLayout {
+  const hidden = layout.hidden.includes(id) ? layout.hidden.filter((h) => h !== id) : [...layout.hidden, id];
+  return { ...layout, hidden };
+}
+
+export const sectionLabel = (id: HomeSectionId) => HOME_SECTIONS.find((s) => s.id === id)!;

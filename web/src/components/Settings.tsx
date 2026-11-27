@@ -75,6 +75,7 @@ export function Settings({
   onCategoryColoursChange,
   homeLayout,
   onHomeLayoutChange,
+  onArrangeHome,
   recurringExpenses,
   onRecurringSave,
   onRecurringDelete,
@@ -97,6 +98,7 @@ export function Settings({
   onCategoryColoursChange: (next: Record<string, PaletteColour>) => Promise<void>;
   homeLayout: HomeLayout;
   onHomeLayoutChange: (next: HomeLayout) => Promise<void>;
+  onArrangeHome: () => void;
   recurringExpenses: RecurringExpense[];
   onRecurringSave: (draft: RecurringDraft) => Promise<void>;
   onRecurringDelete: (id: string) => Promise<void>;
@@ -356,7 +358,7 @@ export function Settings({
         </div>
       </section>
 
-      <HomeLayoutSettings layout={homeLayout} onChange={onHomeLayoutChange} />
+      <HomeLayoutSettings layout={homeLayout} onChange={onHomeLayoutChange} onArrange={onArrangeHome} />
 
       <CategoryColours colours={categoryColours} onChange={onCategoryColoursChange} />
 
