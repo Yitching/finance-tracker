@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { useLedger } from "./lib/useLedger";
@@ -34,6 +34,7 @@ import { billsOutlook, committedUntil, useBillPrefs } from "./lib/bills";
 import { CardsContext, useCardSettings } from "./lib/cards";
 import { CardRewards } from "./components/CardRewards";
 import { InsightTeaser } from "./components/InsightTeaser";
+import { useHomeLayout, type HomeSectionId } from "./lib/homeLayout";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -83,6 +84,7 @@ function Home() {
   const [cardSettings, setCardSettings] = useCardSettings();
   const [categoryColours, setCategoryColours] = useCategoryColours();
   const recurringApi = useRecurringExpenses();
+  const [homeLayout, setHomeLayout] = useHomeLayout();
   const cadenceById = useMemo(
     () => Object.fromEntries(recurringApi.rules.map((r) => [r.id, r.cadence])),
     [recurringApi.rules],
@@ -662,6 +664,8 @@ function Home() {
             onRecurringDelete={recurringApi.remove}
             categoryColours={categoryColours}
             onCategoryColoursChange={setCategoryColours}
+            homeLayout={homeLayout}
+            onHomeLayoutChange={setHomeLayout}
             onStatementDayChange={(d) => {
               setPeriodKey(null);
               return setStatementDay(d);
@@ -679,6 +683,49 @@ function Home() {
       </CardsContext.Provider>
     );
   }
+
+  // Home's sections, placed in the order you choose in Settings → Home layout.
+  const homeSections: Record<HomeSectionId, ReactNode> = {
+    safe: (
+      <SafeToSpend
+        expenses={expenses}
+        period={homePeriod}
+        statementDay={statementDay}
+        budget={budget}
+        committed={committed}
+        statementOut={
+          statementDay ? (
+            <StatementOut tone="pop" current={homePeriod} next={homeNext} statementDay={statementDay} onConfirm={endPeriodEarly} />
+          ) : null
+        }
+      />
+    ),
+    pots: (
+      <PotsCard
+        pots={pots}
+        spentByCategory={homeSpentByCategory}
+        budget={budget}
+        onAddToPot={(id, amount) => {
+          const pot = pots.find((p) => p.id === id);
+          feedback(pot && pot.saved < pot.amount && pot.saved + amount >= pot.amount ? "target" : "log");
+          void addToPot(id, amount);
+        }}
+        onManage={() => open("settings")}
+      />
+    ),
+    chips: <Chips memory={memory} onTap={(m) => void handleChip(m)} />,
+    summary: <SummaryStrip expenses={expenses} onOpen={() => open("spending")} />,
+    insights: (
+      <InsightTeaser
+        nextBill={outlook.upcoming[0] ? { name: outlook.upcoming[0].bill.name, amount: outlook.upcoming[0].amount, date: outlook.upcoming[0].date } : null}
+        onOpen={() => open("insights")}
+      />
+    ),
+    recent:
+      recent.length > 0 || expenses.length === 0 ? (
+        <RecentList expenses={recent} onDelete={handleDelete} onUpdate={update} limit={80} />
+      ) : null,
+  };
 
   return (
     <CardsContext.Provider value={cardSettings.cards}>
@@ -733,53 +780,24 @@ function Home() {
           <div className="h-48 animate-pulse rounded-3xl bg-card" />
         ) : (
           <>
+            {/* Pinned: only shows when charges need checking. */}
             {pending.length > 0 && <InboxBanner pending={pending} onOpen={() => open("inbox")} />}
-            <SafeToSpend
-              expenses={expenses}
-              period={homePeriod}
-              statementDay={statementDay}
-              budget={budget}
-              committed={committed}
-              statementOut={
-                statementDay ? (
-                  <StatementOut
-                    tone="pop"
-                    current={homePeriod}
-                    next={homeNext}
-                    statementDay={statementDay}
-                    onConfirm={endPeriodEarly}
-                  />
-                ) : null
-              }
-            />
-            <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
-              <PotsCard
-                pots={pots}
-                spentByCategory={homeSpentByCategory}
-                budget={budget}
-                onAddToPot={(id, amount) => {
-                  const pot = pots.find((p) => p.id === id);
-                  feedback(pot && pot.saved < pot.amount && pot.saved + amount >= pot.amount ? "target" : "log");
-                  void addToPot(id, amount);
-                }}
-                onManage={() => open("settings")}
-              />
+            {/* Everything else in your order, from Settings → Home layout. */}
+            {homeLayout.order
+              .filter((id) => !homeLayout.hidden.includes(id))
+              .map((id, i) => {
+                const section = homeSections[id];
+                return section ? (
+                  <div key={id} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 5) * 40}ms` }}>
+                    {section}
+                  </div>
+                ) : null;
+              })}
+            <div className="text-center">
+              <button onClick={() => open("settings")} className="text-xs font-medium text-ink-faint underline-offset-4 hover:underline">
+                Customise home
+              </button>
             </div>
-            <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
-              <Chips memory={memory} onTap={(m) => void handleChip(m)} />
-            </div>
-            <div className="animate-fade-up" style={{ animationDelay: "140ms" }}>
-              <SummaryStrip expenses={expenses} onOpen={() => open("spending")} />
-            </div>
-            <div className="animate-fade-up" style={{ animationDelay: "180ms" }}>
-              <InsightTeaser
-                nextBill={outlook.upcoming[0] ? { name: outlook.upcoming[0].bill.name, amount: outlook.upcoming[0].amount, date: outlook.upcoming[0].date } : null}
-                onOpen={() => open("insights")}
-              />
-            </div>
-            {(recent.length > 0 || expenses.length === 0) && (
-              <RecentList expenses={recent} onDelete={handleDelete} onUpdate={update} limit={80} />
-            )}
           </>
         )}
       </main>
