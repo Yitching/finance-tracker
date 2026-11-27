@@ -3,6 +3,7 @@ import { money, moneyWhole, startOfDay } from "../lib/money";
 import { committedUntil, holdsBack, yearlyCost, type BillsOutlook } from "../lib/bills";
 import type { RecurringCandidate } from "../lib/recurring";
 import { categoryBar } from "../lib/categoryStyle";
+import { RepeatIcon } from "./RepeatIcon";
 
 const HORIZON = 30;
 const DAY = 86_400_000;
@@ -156,7 +157,7 @@ export function BillsRadar({
                     {b.name.slice(0, 1).toUpperCase()}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{b.name}</span>
+                    <span className="block font-medium break-words">{b.name}</span>
                     <span className="block text-xs text-ink-faint">
                       {date.getTime() === today ? "Due today" : shortDate(date)} · {b.cadence.toLowerCase()}
                       {!holdsBack(b) && " · not held back"}
@@ -175,7 +176,10 @@ export function BillsRadar({
                   <div className="animate-fade-up -mt-1 flex items-center gap-3 pb-3 pl-12 text-sm">
                     {b.key.startsWith("rule:") ? (
                       <>
-                        <span className="min-w-0 flex-1 text-ink-soft">🔁 One of your recurring expenses.</span>
+                        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-ink-soft">
+                          <RepeatIcon className="size-3.5 text-accent" />
+                          One of your recurring expenses.
+                        </span>
                         {onManageRecurring && (
                           <button onClick={onManageRecurring} className="shrink-0 font-bold text-accent">
                             Edit
