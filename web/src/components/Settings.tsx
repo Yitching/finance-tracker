@@ -22,6 +22,8 @@ import { RecurringSettings } from "./RecurringSettings";
 import type { RecurringDraft, RecurringExpense } from "../lib/recurringExpenses";
 import { FeedbackSettings } from "./FeedbackSettings";
 import { CategoryColours } from "./CategoryColours";
+import { HomeLayoutSettings } from "./HomeLayoutSettings";
+import type { HomeLayout } from "../lib/homeLayout";
 import type { PaletteColour } from "../lib/categoryStyle";
 import { CATEGORIES, CATEGORY_EMOJI, type MerchantRule } from "../lib/types";
 import { ScreenHeader } from "./ScreenHeader";
@@ -71,6 +73,9 @@ export function Settings({
   onCardSettingsChange,
   categoryColours,
   onCategoryColoursChange,
+  homeLayout,
+  onHomeLayoutChange,
+  onArrangeHome,
   recurringExpenses,
   onRecurringSave,
   onRecurringDelete,
@@ -91,6 +96,9 @@ export function Settings({
   onCardSettingsChange: (next: CardSettings) => Promise<void>;
   categoryColours: Record<string, PaletteColour>;
   onCategoryColoursChange: (next: Record<string, PaletteColour>) => Promise<void>;
+  homeLayout: HomeLayout;
+  onHomeLayoutChange: (next: HomeLayout) => Promise<void>;
+  onArrangeHome: () => void;
   recurringExpenses: RecurringExpense[];
   onRecurringSave: (draft: RecurringDraft) => Promise<void>;
   onRecurringDelete: (id: string) => Promise<void>;
@@ -349,6 +357,8 @@ export function Settings({
           ))}
         </div>
       </section>
+
+      <HomeLayoutSettings layout={homeLayout} onChange={onHomeLayoutChange} onArrange={onArrangeHome} />
 
       <CategoryColours colours={categoryColours} onChange={onCategoryColoursChange} />
 

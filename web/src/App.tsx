@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import { useLedger } from "./lib/useLedger";
@@ -34,6 +34,7 @@ import { billsOutlook, committedUntil, useBillPrefs } from "./lib/bills";
 import { CardsContext, useCardSettings } from "./lib/cards";
 import { CardRewards } from "./components/CardRewards";
 import { InsightTeaser } from "./components/InsightTeaser";
+import { DEFAULT_LAYOUT, moveSection, sectionLabel, toggleSection, useHomeLayout, type HomeLayout, type HomeSectionId } from "./lib/homeLayout";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -83,6 +84,15 @@ function Home() {
   const [cardSettings, setCardSettings] = useCardSettings();
   const [categoryColours, setCategoryColours] = useCategoryColours();
   const recurringApi = useRecurringExpenses();
+  const [homeLayout, setHomeLayout] = useHomeLayout();
+  // Arranging Home in place: each section gets ▲ ▼ and Hide / Show, on the real screen.
+  const [arranging, setArranging] = useState(false);
+  const [lastMoved, setLastMoved] = useState<HomeSectionId | null>(null);
+  const sectionEls = useRef<Partial<Record<HomeSectionId, HTMLDivElement | null>>>({});
+  // Keep the section you just moved in view, so you see where it landed.
+  useEffect(() => {
+    if (lastMoved) sectionEls.current[lastMoved]?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [homeLayout, lastMoved]);
   const cadenceById = useMemo(
     () => Object.fromEntries(recurringApi.rules.map((r) => [r.id, r.cadence])),
     [recurringApi.rules],
@@ -662,6 +672,13 @@ function Home() {
             onRecurringDelete={recurringApi.remove}
             categoryColours={categoryColours}
             onCategoryColoursChange={setCategoryColours}
+            homeLayout={homeLayout}
+            onHomeLayoutChange={setHomeLayout}
+            onArrangeHome={() => {
+              setArranging(true);
+              setLastMoved(null);
+              goHome();
+            }}
             onStatementDayChange={(d) => {
               setPeriodKey(null);
               return setStatementDay(d);
@@ -680,6 +697,54 @@ function Home() {
     );
   }
 
+  function arrange(next: HomeLayout, moved: HomeSectionId | null = null) {
+    setLastMoved(moved);
+    setHomeLayout(next).catch(() => showToast({ text: "Saved on this phone, but couldn't sync your layout" }));
+  }
+
+  // Home's sections, placed in the order you choose in Settings → Home layout.
+  const homeSections: Record<HomeSectionId, ReactNode> = {
+    safe: (
+      <SafeToSpend
+        expenses={expenses}
+        period={homePeriod}
+        statementDay={statementDay}
+        budget={budget}
+        committed={committed}
+        statementOut={
+          statementDay ? (
+            <StatementOut tone="pop" current={homePeriod} next={homeNext} statementDay={statementDay} onConfirm={endPeriodEarly} />
+          ) : null
+        }
+      />
+    ),
+    pots: (
+      <PotsCard
+        pots={pots}
+        spentByCategory={homeSpentByCategory}
+        budget={budget}
+        onAddToPot={(id, amount) => {
+          const pot = pots.find((p) => p.id === id);
+          feedback(pot && pot.saved < pot.amount && pot.saved + amount >= pot.amount ? "target" : "log");
+          void addToPot(id, amount);
+        }}
+        onManage={() => open("settings")}
+      />
+    ),
+    chips: <Chips memory={memory} onTap={(m) => void handleChip(m)} />,
+    summary: <SummaryStrip expenses={expenses} onOpen={() => open("spending")} />,
+    insights: (
+      <InsightTeaser
+        nextBill={outlook.upcoming[0] ? { name: outlook.upcoming[0].bill.name, amount: outlook.upcoming[0].amount, date: outlook.upcoming[0].date } : null}
+        onOpen={() => open("insights")}
+      />
+    ),
+    recent:
+      recent.length > 0 || expenses.length === 0 ? (
+        <RecentList expenses={recent} onDelete={handleDelete} onUpdate={update} limit={80} />
+      ) : null,
+  };
+
   return (
     <CardsContext.Provider value={cardSettings.cards}>
       <RepeatContext.Provider value={repeatExpense}>
@@ -687,8 +752,8 @@ function Home() {
     <div className="mx-auto flex min-h-dvh max-w-lg flex-col">
       <header className="@container flex items-center justify-between gap-3 px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-extrabold tracking-tight @min-[18rem]:text-xl @min-[22rem]:text-2xl">
-            Lazy Ledger<span className="@max-[20rem]:hidden"> 🪙</span>
+          <h1 className="truncate text-lg font-extrabold tracking-tight @min-[18rem]:text-xl @min-[28rem]:text-2xl">
+            Lazy Ledger<span className="@max-[28rem]:hidden"> 🪙</span>
           </h1>
           <p className="truncate text-sm text-ink-soft">{greeting}</p>
         </div>
@@ -696,11 +761,11 @@ function Home() {
           <span className="whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-bg">
             {daysLogged > 0 ? (
               <>
-                🔥 {daysLogged}/7<span className="@max-[21rem]:hidden"> days</span>
+                🔥 {daysLogged}/7<span className="@max-[26rem]:hidden"> days</span>
               </>
             ) : (
               <>
-                ✨<span className="@max-[21rem]:hidden"> Fresh week</span>
+                ✨<span className="@max-[26rem]:hidden"> Fresh week</span>
               </>
             )}
           </span>
@@ -733,52 +798,94 @@ function Home() {
           <div className="h-48 animate-pulse rounded-3xl bg-card" />
         ) : (
           <>
+            {/* Pinned: only shows when charges need checking. */}
             {pending.length > 0 && <InboxBanner pending={pending} onOpen={() => open("inbox")} />}
-            <SafeToSpend
-              expenses={expenses}
-              period={homePeriod}
-              statementDay={statementDay}
-              budget={budget}
-              committed={committed}
-              statementOut={
-                statementDay ? (
-                  <StatementOut
-                    tone="pop"
-                    current={homePeriod}
-                    next={homeNext}
-                    statementDay={statementDay}
-                    onConfirm={endPeriodEarly}
-                  />
-                ) : null
-              }
-            />
-            <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
-              <PotsCard
-                pots={pots}
-                spentByCategory={homeSpentByCategory}
-                budget={budget}
-                onAddToPot={(id, amount) => {
-                  const pot = pots.find((p) => p.id === id);
-                  feedback(pot && pot.saved < pot.amount && pot.saved + amount >= pot.amount ? "target" : "log");
-                  void addToPot(id, amount);
-                }}
-                onManage={() => open("settings")}
-              />
-            </div>
-            <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
-              <Chips memory={memory} onTap={(m) => void handleChip(m)} />
-            </div>
-            <div className="animate-fade-up" style={{ animationDelay: "140ms" }}>
-              <SummaryStrip expenses={expenses} onOpen={() => open("spending")} />
-            </div>
-            <div className="animate-fade-up" style={{ animationDelay: "180ms" }}>
-              <InsightTeaser
-                nextBill={outlook.upcoming[0] ? { name: outlook.upcoming[0].bill.name, amount: outlook.upcoming[0].amount, date: outlook.upcoming[0].date } : null}
-                onOpen={() => open("insights")}
-              />
-            </div>
-            {(recent.length > 0 || expenses.length === 0) && (
-              <RecentList expenses={recent} onDelete={handleDelete} onUpdate={update} limit={80} />
+            {arranging ? (
+              <>
+                <p className="rounded-2xl bg-card px-4 py-3 text-sm text-ink-soft ring-1 ring-line">
+                  <b className="text-ink">Arranging Home.</b> Move sections with ▲ ▼ and hide the ones you don't use. This is
+                  your real screen, so what you see is what you get.
+                </p>
+                {homeLayout.order.map((id, i) => {
+                  const hidden = homeLayout.hidden.includes(id);
+                  const label = sectionLabel(id);
+                  return (
+                    <div
+                      key={id}
+                      ref={(el) => {
+                        sectionEls.current[id] = el;
+                      }}
+                      className={`scroll-my-28 rounded-[1.75rem] p-1.5 ring-2 ring-dashed transition ${
+                        lastMoved === id ? "ring-accent" : "ring-line"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 px-2 pt-0.5 pb-1.5">
+                        <span className="min-w-0 flex-1 truncate text-sm font-bold">
+                          {label.emoji} {label.label}
+                        </span>
+                        <button
+                          onClick={() => arrange(moveSection(homeLayout, id, -1), id)}
+                          disabled={i === 0}
+                          aria-label={`Move ${label.label} up`}
+                          className="grid size-9 place-items-center rounded-xl bg-card ring-1 ring-line transition active:scale-90 disabled:opacity-30"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          onClick={() => arrange(moveSection(homeLayout, id, 1), id)}
+                          disabled={i === homeLayout.order.length - 1}
+                          aria-label={`Move ${label.label} down`}
+                          className="grid size-9 place-items-center rounded-xl bg-card ring-1 ring-line transition active:scale-90 disabled:opacity-30"
+                        >
+                          ▼
+                        </button>
+                        <button
+                          onClick={() => arrange(toggleSection(homeLayout, id))}
+                          className={`rounded-xl px-3 py-2 text-xs font-bold ring-1 transition active:scale-95 ${
+                            hidden ? "bg-accent text-white ring-accent" : "bg-card ring-line"
+                          }`}
+                        >
+                          {hidden ? "Show" : "Hide"}
+                        </button>
+                      </div>
+                      {hidden ? (
+                        <p className="px-2 pb-1 text-xs text-ink-faint">Hidden from Home.</p>
+                      ) : (
+                        // The real section, look-only while arranging so a tap doesn't log or open anything.
+                        <div className="pointer-events-none select-none" aria-hidden>
+                          {homeSections[id] ?? <p className="px-2 pb-1 text-xs text-ink-faint">Nothing to show here yet.</p>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            ) : (
+              <>
+                {/* Everything else in your order, from Settings → Home layout. */}
+                {homeLayout.order
+                  .filter((id) => !homeLayout.hidden.includes(id))
+                  .map((id, i) => {
+                    const section = homeSections[id];
+                    return section ? (
+                      <div key={id} className="animate-fade-up" style={{ animationDelay: `${Math.min(i, 5) * 40}ms` }}>
+                        {section}
+                      </div>
+                    ) : null;
+                  })}
+                <div className="text-center">
+                  <button
+                    onClick={() => {
+                      setArranging(true);
+                      setLastMoved(null);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    className="text-xs font-medium text-ink-faint underline-offset-4 hover:underline"
+                  >
+                    Customise home
+                  </button>
+                </div>
+              </>
             )}
           </>
         )}
@@ -788,6 +895,27 @@ function Home() {
       <div className="fixed inset-x-0 bottom-0 z-10 bg-gradient-to-t from-bg via-bg to-transparent pt-8">
         <div className="mx-auto max-w-lg space-y-2 px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
           {toastBar}
+          {arranging ? (
+            <div className="flex gap-2 rounded-3xl bg-card p-2 shadow-lg ring-1 ring-line">
+              <button
+                onClick={() => arrange(DEFAULT_LAYOUT)}
+                className="rounded-2xl px-4 py-3 text-sm font-bold text-ink-soft transition active:scale-95"
+              >
+                Reset
+              </button>
+              <button
+                onClick={() => {
+                  setArranging(false);
+                  setLastMoved(null);
+                  feedback("keep");
+                }}
+                className="bg-pop-gradient flex-1 rounded-2xl px-4 py-3 font-bold text-white shadow-md transition active:scale-[0.98]"
+              >
+                Done
+              </button>
+            </div>
+          ) : (
+          <>
           {askQueue[0] && (
             <AskPrice
               key={askQueue[0].item + askQueue.length}
@@ -806,6 +934,8 @@ function Home() {
             day={day}
             onDayChange={setDay}
           />
+          </>
+          )}
         </div>
       </div>
     </div>
